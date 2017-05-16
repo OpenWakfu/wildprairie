@@ -1,0 +1,3 @@
+[submodule "dependencies/wakfutcp"]
+	path = dependencies/wakfutcp
+	url = https://github.com/jac3km4/wakfutcp
