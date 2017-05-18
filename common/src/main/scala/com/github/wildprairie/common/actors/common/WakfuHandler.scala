@@ -6,5 +6,5 @@ import com.github.wakfutcp.traits.StatefulActor
 /**
   * Created by hussein on 16/05/17.
   */
-abstract class WakfuHandler(authenticator: ActorRef)
+abstract class WakfuHandler(server: ActorRef, authenticator: ActorRef)
   extends Actor with StatefulActor with ActorLogging

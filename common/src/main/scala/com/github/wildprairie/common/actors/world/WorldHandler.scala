@@ -7,16 +7,16 @@ import com.github.wildprairie.common.actors.common.WakfuHandler
   * Created by hussein on 18/05/17.
   */
 object WorldHandler {
-  def props(authenticator: ActorRef): Props =
-    Props(classOf[WorldHandler], authenticator)
+  def props(server: ActorRef, authenticator: ActorRef): Props =
+    Props(classOf[WorldHandler], server, authenticator)
 
   sealed trait WorldState
 
   final case object ProtocolVerification extends WorldState
 }
 
-class WorldHandler(authenticator: ActorRef)
-  extends WakfuHandler(authenticator) {
+class WorldHandler(server: ActorRef, authenticator: ActorRef)
+  extends WakfuHandler(server, authenticator) {
   import WorldHandler._
 
   override type State = WorldState

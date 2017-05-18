@@ -15,14 +15,16 @@ object WakfuServer {
   val ROLE_MASTER = "master"
 }
 
-abstract class WakfuServer(host: String, port: Int, newHandler: Props) extends ClusteredActor {
+abstract class WakfuServer(host: String, port: Int) extends ClusteredActor {
   override def preStart(): Unit =
     super.preStart()
     context.actorOf(TcpServer.props(
       new InetSocketAddress(host, port),
       WakfuServerConnection.props,
-      newHandler
+      newHandlerProps
     ), "tcp-server")
+
+  def newHandlerProps: Props
 
   override def receive: Receive = PartialFunction.empty
 }

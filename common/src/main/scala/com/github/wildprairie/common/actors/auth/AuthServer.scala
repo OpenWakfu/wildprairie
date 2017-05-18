@@ -18,7 +18,7 @@ object AuthServer {
 }
 
 final class AuthServer(authenticator: ActorRef)
-  extends WakfuServer("localhost", 8080, AuthHandler.props(authenticator)) {
+  extends WakfuServer("localhost", 8080) {
 
   import com.github.wildprairie.common.actors.auth.AuthServer._
 
@@ -26,6 +26,9 @@ final class AuthServer(authenticator: ActorRef)
     super.preStart()
     context.become(handleClusterEvents(List.empty))
   }
+
+  override def newHandlerProps: Props =
+    AuthHandler.props(self, authenticator)
 
   def handleClusterEvents(worldsSpec: List[WorldServerSpec]) : Receive = {
     case UpdateWorldStatus(spec) =>

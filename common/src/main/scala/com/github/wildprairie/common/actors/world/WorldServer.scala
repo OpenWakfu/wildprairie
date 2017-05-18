@@ -1,7 +1,7 @@
 package com.github.wildprairie.common.actors.world
 
 import akka.actor.{ActorRef, Props}
-import akka.cluster.ClusterEvent.{MemberJoined, MemberUp}
+import akka.cluster.ClusterEvent.MemberUp
 import com.github.wakfutcp.protocol.common.{Community, Proxy, ProxyServer, Version, WorldInfo}
 import com.github.wildprairie.common.actors.auth.AuthServer
 import com.github.wildprairie.common.actors.common.{WakfuServer, WorldServerSpec}
@@ -15,13 +15,16 @@ object WorldServer {
 }
 
 class WorldServer(host: String, port: Int, authenticator: ActorRef)
-  extends WakfuServer(host, port, WorldHandler.props(authenticator)) {
+  extends WakfuServer(host, port) {
   import WakfuServer._
 
   override def preStart(): Unit = {
     super.preStart()
     context.become(handleClusterEvents())
   }
+
+  override def newHandlerProps: Props =
+    WorldHandler.props(self, authenticator)
 
   def handleClusterEvents(): Receive = {
     case MemberUp(member) if member.hasRole(ROLE_AUTH) =>

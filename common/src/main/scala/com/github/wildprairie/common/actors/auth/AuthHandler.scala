@@ -19,8 +19,8 @@ import scala.util.Random
   * Created by hussein on 16/05/17.
   */
 object AuthHandler {
-  def props(authenticator: ActorRef): Props =
-    Props(classOf[AuthHandler], authenticator)
+  def props(server: ActorRef, authenticator: ActorRef): Props =
+    Props(classOf[AuthHandler], server, authenticator)
 
   sealed trait AuthState
   final case object ProtocolVerification extends AuthState
@@ -35,7 +35,7 @@ object AuthHandler {
   def nextSalt: Long = rand.nextLong()
 }
 
-class AuthHandler(authenticator: ActorRef) extends WakfuHandler(authenticator) with Stash {
+class AuthHandler(server: ActorRef, authenticator: ActorRef) extends WakfuHandler(server: ActorRef, authenticator) with Stash {
   import AuthHandler._
 
   override type State = AuthState
@@ -95,7 +95,9 @@ class AuthHandler(authenticator: ActorRef) extends WakfuHandler(authenticator) w
           Some(account)
         )
         unstashAll()
+        server ! AuthServer.GetWorldsSpec
         setStates(List(AcquiringWorldsInfo(account)))
+
       case Authenticator.Failure(_, reason) =>
         log.info(s"auth: failure, reason=$reason")
         val result = reason match {
@@ -109,6 +111,7 @@ class AuthHandler(authenticator: ActorRef) extends WakfuHandler(authenticator) w
             Result.InvalidLogin
         }
         client !! ClientDispatchAuthenticationResultMessage(result, None)
+
       case _ =>
         stash()
     }
@@ -117,6 +120,7 @@ class AuthHandler(authenticator: ActorRef) extends WakfuHandler(authenticator) w
   def handleWorldsSpecAcquisition(account: AccountInformation): StatefulReceive = {
     _ => {
       case AuthServer.WorldsSpec(worldsSpec) =>
+        log.info(s"worlds spec: $worldsSpec")
         unstashAll()
         setStates(List(SelectingWorld(worldsSpec, account)))
 
