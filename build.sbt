@@ -32,7 +32,8 @@ lazy val common = (project in file("common"))
       "com.typesafe.akka" %% "akka-actor" % "2.5.1",
       "com.typesafe.akka" %% "akka-cluster" % "2.5.1"
     )
-  ).dependsOn(protocol)
+  )
+  .dependsOn(protocol)
 
 lazy val auth = (project in file("auth"))
   .settings(commonSettings)

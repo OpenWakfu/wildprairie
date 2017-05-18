@@ -1,8 +1,17 @@
 # Created by https://www.gitignore.io/api/sbt,scala,intellij
 
+### Resources ###
+common/src/main/resources/*.der
+common/src/main/resources/*.pem
+auth/src/main/resources/*.der
+auth/src/main/resources/*.pem
+world/src/main/resources/*.der
+world/src/main/resources/*.pem
+
 ### SBT ###
 # Simple Build Tool
 # http://www.scala-sbt.org/release/docs/Getting-Started/Directories.html#configuring-version-control
+
 
 target/
 lib_managed/
