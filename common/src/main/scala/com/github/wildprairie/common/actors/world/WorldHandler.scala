@@ -1,7 +1,7 @@
 package com.github.wildprairie.common.actors.world
 
-import akka.actor.{ActorRef, Props}
-import com.github.wildprairie.common.actors.common.WakfuHandler
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import com.github.wakfutcp.traits.StatefulActor
 
 /**
   * Created by hussein on 18/05/17.
@@ -16,7 +16,7 @@ object WorldHandler {
 }
 
 class WorldHandler(server: ActorRef, authenticator: ActorRef)
-  extends WakfuHandler(server, authenticator) {
+  extends Actor with StatefulActor with ActorLogging {
   import WorldHandler._
 
   override type State = WorldState

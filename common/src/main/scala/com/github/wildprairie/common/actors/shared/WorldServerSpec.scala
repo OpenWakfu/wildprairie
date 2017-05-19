@@ -1,4 +1,4 @@
-package com.github.wildprairie.common.actors.common
+package com.github.wildprairie.common.actors.shared
 
 import com.github.wakfutcp.protocol.common.{Proxy, WorldInfo}
 

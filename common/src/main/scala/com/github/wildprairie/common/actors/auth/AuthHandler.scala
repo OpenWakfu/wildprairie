@@ -3,13 +3,14 @@ package com.github.wildprairie.common.actors.auth
 import java.nio.ByteBuffer
 import java.security.PrivateKey
 
-import akka.actor.{ActorRef, Props, Stash}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import com.github.wakfutcp.protocol.Decoder
 import com.github.wakfutcp.traits.server.syntax._
 import com.github.wakfutcp.protocol.messages.forClient._
 import com.github.wakfutcp.protocol.messages.forServer.ClientDispatchAuthenticationMessage.CredentialData
 import com.github.wakfutcp.protocol.messages.forServer._
-import com.github.wildprairie.common.actors.common.{Authenticator, WakfuHandler, WorldServerSpec}
+import com.github.wakfutcp.traits.StatefulActor
+import com.github.wildprairie.common.actors.shared.{Authenticator, WorldServerSpec}
 import com.github.wildprairie.common.utils._
 
 import scala.util.Random
@@ -35,7 +36,8 @@ object AuthHandler {
   def nextSalt: Long = rand.nextLong()
 }
 
-class AuthHandler(server: ActorRef, authenticator: ActorRef) extends WakfuHandler(server: ActorRef, authenticator) with Stash {
+class AuthHandler(server: ActorRef, authenticator: ActorRef)
+  extends Actor with StatefulActor with ActorLogging with Stash {
   import AuthHandler._
 
   override type State = AuthState
@@ -139,6 +141,7 @@ class AuthHandler(server: ActorRef, authenticator: ActorRef) extends WakfuHandle
         )
 
       case AuthenticationTokenRequestMessage(serverId, accountId) =>
+        // TODO: ask world server for a token and dispatch the client
         log.info(s"selected world: id=$serverId, accountId=$accountId")
     }
 }

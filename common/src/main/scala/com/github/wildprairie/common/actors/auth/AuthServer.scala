@@ -1,7 +1,7 @@
 package com.github.wildprairie.common.actors.auth
 
 import akka.actor.{ActorRef, Props}
-import com.github.wildprairie.common.actors.common.{WakfuServer, WorldServerSpec}
+import com.github.wildprairie.common.actors.shared.{WakfuServer, WorldServerSpec}
 
 /**
   * Created by hussein on 16/05/17.

@@ -5,7 +5,7 @@ import com.github.wakfutcp.protocol.messages.forClient.AccountInformation
 import com.github.wakfutcp.protocol.messages.forServer.ClientDispatchAuthenticationMessage
 import com.github.wakfutcp.protocol.protobuf.account.Status
 import com.github.wildprairie.common.ClusterSystem
-import com.github.wildprairie.common.actors.common.Authenticator
+import com.github.wildprairie.common.actors.shared.Authenticator
 import com.github.wildprairie.common.actors.world.WorldServer
 
 import scala.concurrent.Await

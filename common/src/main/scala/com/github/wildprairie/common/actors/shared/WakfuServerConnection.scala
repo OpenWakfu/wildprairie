@@ -1,4 +1,4 @@
-package com.github.wildprairie.common.actors.common
+package com.github.wildprairie.common.actors.shared
 
 import akka.actor.{ActorRef, Props}
 import com.github.wakfutcp.actors.server.ConnectionHandler

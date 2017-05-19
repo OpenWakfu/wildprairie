@@ -6,7 +6,7 @@ import com.github.wakfutcp.protocol.messages.forServer.ClientDispatchAuthenticat
 import com.github.wakfutcp.protocol.protobuf.account.Status
 import com.github.wildprairie.common.ClusterSystem
 import com.github.wildprairie.common.actors.auth.AuthServer
-import com.github.wildprairie.common.actors.common.Authenticator
+import com.github.wildprairie.common.actors.shared.Authenticator
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
