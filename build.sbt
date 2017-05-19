@@ -37,7 +37,10 @@ lazy val common = (project in file("common"))
 lazy val auth = (project in file("auth"))
   .settings(commonSettings)
   .settings(
-    moduleName := "wildprairie-auth"
+    moduleName := "wildprairie-auth",
+    libraryDependencies ++= Seq(
+      "io.getquill" %% "quill-async-postgres" % "1.2.1"
+    )
   )
   .dependsOn(common)
 
@@ -45,7 +48,12 @@ lazy val auth = (project in file("auth"))
 lazy val world = (project in file("world"))
   .settings(commonSettings)
   .settings(
-    moduleName := "wildprairie-world"
+    moduleName := "wildprairie-world",
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-persistence" % "2.5.1",
+      "org.iq80.leveldb" % "leveldb" % "0.7",
+      "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8"
+    )
   )
   .dependsOn(common)
 
