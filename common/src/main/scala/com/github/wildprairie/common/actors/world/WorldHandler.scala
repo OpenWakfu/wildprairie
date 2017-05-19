@@ -15,7 +15,9 @@ object WorldHandler {
 }
 
 class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
-  extends Actor with StatefulActor with ActorLogging {
+    extends Actor
+    with StatefulActor
+    with ActorLogging {
   import WorldHandler._
 
   override type State = WorldState
@@ -30,7 +32,7 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
 
   def handleProtocolVerification: StatefulReceive =
     _ => {
-      case msg@_ =>
+      case msg @ _ =>
         log.info(s"received $msg")
     }
 }

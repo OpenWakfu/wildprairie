@@ -16,13 +16,17 @@ object TokenAuthenticator {
 
   sealed trait Message
   final case class TokenGenerationRequest(account: AccountInformation) extends Message
-  final case class TokenGenerationResult(token: String, account: AccountInformation) extends Message
+  final case class TokenGenerationResult(token: String, account: AccountInformation)
+      extends Message
   final case class GetAccountRequest(token: String) extends Message
-  final case class GetAccountResult(token: String, accountOpt: Option[AccountInformation]) extends Message
+  final case class GetAccountResult(token: String, accountOpt: Option[AccountInformation])
+      extends Message
 }
 
-class TokenAuthenticator extends Actor
-  with ActorLogging with Authenticator[ClientAuthenticationTokenMessage, AccountInformation] {
+class TokenAuthenticator
+    extends Actor
+    with ActorLogging
+    with Authenticator[ClientAuthenticationTokenMessage, AccountInformation] {
   import TokenAuthenticator._
 
   override def receive: Receive = PartialFunction.empty

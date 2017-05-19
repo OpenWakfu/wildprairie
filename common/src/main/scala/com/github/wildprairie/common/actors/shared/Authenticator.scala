@@ -20,6 +20,5 @@ object Authenticator {
   }
 }
 
-trait Authenticator[TIn, TOut] {
-  self: Actor =>
+trait Authenticator[TIn, TOut] { self: Actor =>
 }

@@ -16,8 +16,7 @@ object AuthServer {
   final case class WorldsSpec(worldsSpec: List[WorldServerSpec]) extends Message
 }
 
-final class AuthServer(authenticator: ActorRef)
-  extends WakfuServer {
+final class AuthServer(authenticator: ActorRef) extends WakfuServer {
 
   import com.github.wildprairie.common.actors.auth.AuthServer._
 
@@ -35,15 +34,16 @@ final class AuthServer(authenticator: ActorRef)
   override def port: Int =
     context.system.settings.config.getInt("auth.port")
 
-  def handleClusterEvents(worldsSpec: List[WorldServerSpec]) : Receive = {
+  def handleClusterEvents(worldsSpec: List[WorldServerSpec]): Receive = {
     case UpdateWorldStatus(spec) =>
       log.info(s"world status update: $spec")
-      context.become(handleClusterEvents(spec :: worldsSpec.filter(_.info.serverId != spec.info.serverId)))
+      context.become(
+        handleClusterEvents(spec :: worldsSpec.filter(_.info.serverId != spec.info.serverId)))
 
     case GetWorldsSpec =>
       sender ! WorldsSpec(worldsSpec)
 
-    case msg@_ =>
+    case msg @ _ =>
       log.info(s"cluster event: $msg")
   }
 }

@@ -10,7 +10,7 @@ import scala.reflect.ClassTag
 object ClusterSystem {
   val SYSTEM_NAME = "wildprairie"
 
-  def start[T <: ClusteredActor : ClassTag]() : ActorSystem = {
+  def start[T <: ClusteredActor: ClassTag](): ActorSystem = {
     val system = ActorSystem(SYSTEM_NAME)
     system.actorOf(Props[T])
     system
