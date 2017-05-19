@@ -11,32 +11,56 @@ import com.github.wildprairie.common.actors.shared.{WakfuServer, WorldServerSpec
   * Created by hussein on 18/05/17.
   */
 object WorldServer {
-  def props(host: String, port: Int, authenticator: ActorRef): Props =
-    Props(classOf[WorldServer], host, port, authenticator)
+  def props(authenticator: ActorRef): Props =
+    Props(classOf[WorldServer], authenticator)
+
+  sealed trait Message
 }
 
-class WorldServer(host: String, port: Int, authenticator: ActorRef)
-  extends WakfuServer(host, port) {
+class WorldServer(authenticator: ActorRef)
+  extends WakfuServer {
   import WakfuServer._
 
   override def preStart(): Unit = {
     super.preStart()
-    context.become(handleClusterEvents())
+    context.become(handleClusterEvents)
   }
 
-  override def newHandlerProps: Props =
-    WorldHandler.props(self, authenticator)
+  override def newHandlerProps: (ActorRef) => Props =
+    client => WorldHandler.props(client, self, authenticator)
 
-  def handleClusterEvents(): Receive = {
+  override def host: String =
+    spec.proxy.server.address
+
+  override def port: Int =
+    spec.proxy.server.ports(0)
+
+  lazy val spec: WorldServerSpec = {
+    val config = context.system.settings.config
+    val id = config.getInt("world.id")
+    val name = config.getString("world.name")
+    val community = Community.withValue(config.getInt("world.community"))
+    val locked = config.getBoolean("world.locked")
+    val version = config.getString("world.version").split("\\.")
+    new WorldServerSpec(
+      cluster.selfAddress,
+      new WorldInfo(id, Version.WithBuild(
+        Version(
+          version(0).toByte,
+          version(1).toShort,
+          version(2).toByte
+        ),
+        "-1"
+      ), Array.empty, locked),
+      new Proxy(id, name, community, ProxyServer(config.getString("world.host"), Array(config.getInt("world.port"))), 0)
+    )
+  }
+
+  def handleClusterEvents: Receive = {
     case MemberUp(member) if member.hasRole(ROLE_AUTH) =>
       log.info(s"dispatching world status to $member")
       val authServer = context.actorSelection(member.address + ActorPaths.Auth.AuthServer.toString())
-      authServer ! AuthServer.UpdateWorldStatus(
-        new WorldServerSpec(
-          new WorldInfo(0, Version.WithBuild(Version(1, 51, 1), "-1"), Array.empty, locked = false),
-          new Proxy(0, "Kokokobana", Community.UK, ProxyServer(host, Array(port)), 0)
-        )
-      )
+      authServer ! AuthServer.UpdateWorldStatus(spec)
 
     case msg@_ =>
       log.info(s"cluster event: $msg")

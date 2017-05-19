@@ -11,6 +11,7 @@ object ActorPaths {
 
   object World {
     final object WorldServer extends Metadata("world-server")
+    final object Authenticator extends Metadata("authenticator")
   }
 
   object Metadata {

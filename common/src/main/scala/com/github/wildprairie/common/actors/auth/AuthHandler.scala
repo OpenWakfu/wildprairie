@@ -11,6 +11,7 @@ import com.github.wakfutcp.protocol.messages.forServer.ClientDispatchAuthenticat
 import com.github.wakfutcp.protocol.messages.forServer._
 import com.github.wakfutcp.traits.StatefulActor
 import com.github.wildprairie.common.actors.shared.{Authenticator, WorldServerSpec}
+import com.github.wildprairie.common.actors.world.TokenAuthenticator
 import com.github.wildprairie.common.utils._
 
 import scala.util.Random
@@ -20,23 +21,24 @@ import scala.util.Random
   * Created by hussein on 16/05/17.
   */
 object AuthHandler {
-  def props(server: ActorRef, authenticator: ActorRef): Props =
-    Props(classOf[AuthHandler], server, authenticator)
+  def props(client: ActorRef, server: ActorRef, authenticator: ActorRef): Props =
+    Props(classOf[AuthHandler], client, server, authenticator)
 
   sealed trait AuthState
   final case object ProtocolVerification extends AuthState
   final case object AwaitingPublicKey extends AuthState
   final case class AwaitingLogin(salt: Long, privateKey: PrivateKey) extends AuthState
-  final case class CheckingAuthentication(client: ActorRef, data: ClientDispatchAuthenticationMessage.CredentialData) extends AuthState
+  final case class CheckingAuthentication(data: ClientDispatchAuthenticationMessage.CredentialData) extends AuthState
   final case class AcquiringWorldsInfo(account: AccountInformation) extends AuthState
   final case class SelectingWorld(worldsSpec: List[WorldServerSpec], account: AccountInformation) extends AuthState
+  final case class AwaitingWorldAck(spec: WorldServerSpec) extends AuthState
 
   private val rand = new Random()
 
   def nextSalt: Long = rand.nextLong()
 }
 
-class AuthHandler(server: ActorRef, authenticator: ActorRef)
+class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
   extends Actor with StatefulActor with ActorLogging with Stash {
   import AuthHandler._
 
@@ -50,12 +52,14 @@ class AuthHandler(server: ActorRef, authenticator: ActorRef)
         handlePublicKeyReq
       case AwaitingLogin(salt, privateKey) =>
         handleAuthentication(salt, privateKey)
-      case CheckingAuthentication(client, data) =>
-        handleAuthenticationCheck(client, data)
+      case CheckingAuthentication(data) =>
+        handleAuthenticationCheck(data)
       case AcquiringWorldsInfo(account) =>
         handleWorldsSpecAcquisition(account)
       case SelectingWorld(worldsSpec, account) =>
         handleWorldSelection(worldsSpec, account)
+      case AwaitingWorldAck(spec) =>
+        handleWorldAck(spec)
     }
 
   override def initialState: List[AuthState] = List(ProtocolVerification)
@@ -64,7 +68,7 @@ class AuthHandler(server: ActorRef, authenticator: ActorRef)
     _ => {
       case ClientVersionMessage(versionWithBuild) =>
         log.info(s"protocol: version=$versionWithBuild")
-        sender !! ClientVersionResultMessage(success = true, versionWithBuild.version)
+        client !! ClientVersionResultMessage(success = true, versionWithBuild.version)
         setStates(List(AwaitingPublicKey))
     }
 
@@ -73,7 +77,7 @@ class AuthHandler(server: ActorRef, authenticator: ActorRef)
       case ClientPublicKeyRequestMessage(serverId) =>
         log.info(s"public key req: serverId=$serverId")
         val salt = nextSalt
-        sender !! ClientPublicKeyMessage(salt, Cipher.RSA.generatePublic.getEncoded)
+        client !! ClientPublicKeyMessage(salt, Cipher.RSA.generatePublic.getEncoded)
         setStates(List(AwaitingLogin(salt, Cipher.RSA.generatePrivate)))
     }
 
@@ -84,10 +88,10 @@ class AuthHandler(server: ActorRef, authenticator: ActorRef)
         val data = Decoder[CredentialData].decode(ByteBuffer.wrap(decryptedCredentials))
         log.info(s"auth: data=$data")
         authenticator ! Authenticator.Authenticate(data)
-        setStates(List(CheckingAuthentication(sender, data)))
+        setStates(List(CheckingAuthentication(data)))
     }
 
-  def handleAuthenticationCheck(client: ActorRef, data: ClientDispatchAuthenticationMessage.CredentialData): StatefulReceive = {
+  def handleAuthenticationCheck(data: ClientDispatchAuthenticationMessage.CredentialData): StatefulReceive = {
     import ClientDispatchAuthenticationResultMessage._
     _ => {
       case Authenticator.Success(_, account: AccountInformation) =>
@@ -135,7 +139,7 @@ class AuthHandler(server: ActorRef, authenticator: ActorRef)
     _ => {
       case ClientProxiesRequestMessage() =>
         log.info("proxies req")
-        sender !! ClientProxiesResultMessage(
+        client !! ClientProxiesResultMessage(
           worldsSpec.map(_.proxy).toArray,
           worldsSpec.map(_.info).toArray
         )
@@ -143,5 +147,21 @@ class AuthHandler(server: ActorRef, authenticator: ActorRef)
       case AuthenticationTokenRequestMessage(serverId, accountId) =>
         // TODO: ask world server for a token and dispatch the client
         log.info(s"selected world: id=$serverId, accountId=$accountId")
+        worldsSpec.find(_.info.serverId == serverId) match {
+          case Some(spec) =>
+            spec.tokenAuthenticatorActor ! TokenAuthenticator.TokenGenerationRequest(account)
+            setStates(List(AwaitingWorldAck(spec)))
+
+          case None =>
+            log.warning(s"server not found: id=$serverId")
+            client !! AuthenticationTokenResultMessage.Failure
+        }
+    }
+
+  def handleWorldAck(worldSpec: WorldServerSpec): StatefulReceive =
+    _ => {
+      case TokenAuthenticator.TokenGenerationResult(token, _) =>
+        log.info(s"token ack received, dispatching client")
+        client !! AuthenticationTokenResultMessage.Success(token)
     }
 }

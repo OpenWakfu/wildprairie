@@ -2,7 +2,7 @@ package com.github.wildprairie.common.actors.shared
 
 import java.net.InetSocketAddress
 
-import akka.actor.Props
+import akka.actor.{ActorRef, Props}
 import com.github.wakfutcp.actors.server.TcpServer
 import com.github.wildprairie.common.actors.ClusteredActor
 
@@ -15,7 +15,7 @@ object WakfuServer {
   val ROLE_MASTER = "master"
 }
 
-abstract class WakfuServer(host: String, port: Int) extends ClusteredActor {
+abstract class WakfuServer extends ClusteredActor {
   override def preStart(): Unit =
     super.preStart()
     context.actorOf(TcpServer.props(
@@ -24,7 +24,9 @@ abstract class WakfuServer(host: String, port: Int) extends ClusteredActor {
       newHandlerProps
     ), "tcp-server")
 
-  def newHandlerProps: Props
+  def newHandlerProps: (ActorRef) => Props
+  def host: String
+  def port: Int
 
   override def receive: Receive = PartialFunction.empty
 }
