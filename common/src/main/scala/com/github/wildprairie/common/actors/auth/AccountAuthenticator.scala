@@ -27,6 +27,7 @@ class AccountAuthenticator
 
   def validateAccount(login: String, password: String): Future[Option[Account]] = {
     import com.github.wildprairie.common.model.Database.context._
+    import Account._
 
     run(Account.getAccountByLogin(login)).map { opt =>
       opt.headOption.flatMap { acc =>
