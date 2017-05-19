@@ -30,7 +30,13 @@ lazy val common = (project in file("common"))
     moduleName := "wildprairie-common",
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-actor" % "2.5.1",
-      "com.typesafe.akka" %% "akka-cluster" % "2.5.1"
+      "com.typesafe.akka" %% "akka-cluster" % "2.5.1",
+      "io.getquill" %% "quill-async-postgres" % "1.2.1",
+      "io.github.nremond" %% "pbkdf2-scala" % "0.6",
+      // akka persist
+      "com.typesafe.akka" %% "akka-persistence" % "2.5.1",
+      "org.iq80.leveldb" % "leveldb" % "0.7",
+      "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8"
     )
   )
   .dependsOn(protocol)
@@ -38,26 +44,16 @@ lazy val common = (project in file("common"))
 lazy val auth = (project in file("auth"))
   .settings(commonSettings)
   .settings(
-    moduleName := "wildprairie-auth",
-    libraryDependencies ++= Seq(
-      "io.getquill" %% "quill-async-postgres" % "1.2.1"
-    )
+    moduleName := "wildprairie-auth"
   )
   .dependsOn(common)
-
 
 lazy val world = (project in file("world"))
   .settings(commonSettings)
   .settings(
-    moduleName := "wildprairie-world",
-    libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-persistence" % "2.5.1",
-      "org.iq80.leveldb" % "leveldb" % "0.7",
-      "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8"
-    )
+    moduleName := "wildprairie-world"
   )
   .dependsOn(common)
-
 
 lazy val master = (project in file("master"))
   .settings(commonSettings)

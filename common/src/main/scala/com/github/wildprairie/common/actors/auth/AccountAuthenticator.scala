@@ -1,11 +1,14 @@
 package com.github.wildprairie.common.actors.auth
 
 import akka.actor.{Actor, ActorLogging, Props}
-import com.github.wakfutcp.protocol.common.Community
 import com.github.wakfutcp.protocol.messages.forClient.AccountInformation
 import com.github.wakfutcp.protocol.messages.forServer.ClientDispatchAuthenticationMessage
 import com.github.wakfutcp.protocol.protobuf.account.Status
+import com.github.wildprairie.common.account.Account
 import com.github.wildprairie.common.actors.shared.Authenticator
+import io.github.nremond.SecureHash
+
+import scala.concurrent.Future
 
 /**
   * Created by hussein on 19/05/17.
@@ -15,14 +18,35 @@ object AccountAuthenticator {
     Props(classOf[AccountAuthenticator])
 }
 
-class AccountAuthenticator extends Actor
-    with ActorLogging with Authenticator[ClientDispatchAuthenticationMessage.CredentialData, AccountInformation]
-{
+class AccountAuthenticator
+    extends Actor
+    with ActorLogging
+    with Authenticator[ClientDispatchAuthenticationMessage.CredentialData, AccountInformation] {
   import Authenticator._
+  import context.dispatcher
+
+  def validateAccount(login: String, password: String): Future[Option[Account]] = {
+    import com.github.wildprairie.common.model.Database.context._
+
+    run(Account.getAccountByLogin(login)).map { opt =>
+      opt.headOption.flatMap { acc =>
+        println(acc)
+        if (SecureHash.validatePassword(password, acc.hashedPassword))
+          Some(acc)
+        else None
+      }
+    }
+  }
 
   override def receive: Receive = {
     case Authenticate(user: ClientDispatchAuthenticationMessage.CredentialData) =>
-      // TODO: check in database
-      sender ! Success(user, AccountInformation(Community.UK, None, Status(Map())))
+      import akka.pattern._
+
+      validateAccount(user.login, user.password).map {
+        case Some(acc) =>
+          Success(user, AccountInformation(acc.community, None, Status(Map())))
+        case None =>
+          Failure(user, FailureReason.WrongCredentials)
+      }.pipeTo(sender())
   }
 }
