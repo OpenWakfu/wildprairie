@@ -25,6 +25,9 @@ class WorldServer(authenticator: ActorRef) extends WakfuServer {
     context.become(handleClusterEvents)
   }
 
+  // startup the global character identifier supply
+  context.actorOf(CharacterIdentifierSupply.props, "character-id-supply")
+
   override def newHandlerProps: (ActorRef) => Props =
     client => WorldHandler.props(client, self, authenticator)
 
