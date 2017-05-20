@@ -19,9 +19,11 @@ object ActorPaths {
   }
 
   class Metadata(name: String, parentOpt: Option[Metadata] = None) {
-    override def toString(): String = (parentOpt match {
-      case Some(parent) => parent.toString()
-      case None => Metadata.ROOT_PARENT
-    }) + s"/$name"
+    override def toString: String = {
+      parentOpt match {
+        case Some(parent) => parent.toString()
+        case None => Metadata.ROOT_PARENT
+      }
+    } + s"/$name"
   }
 }

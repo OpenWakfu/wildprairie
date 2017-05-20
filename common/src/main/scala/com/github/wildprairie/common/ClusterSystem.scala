@@ -8,5 +8,5 @@ import akka.actor.ActorSystem
 object ClusterSystem {
   val SYSTEM_NAME = "wildprairie"
 
-  def start() : ActorSystem = ActorSystem(SYSTEM_NAME)
+  def start(): ActorSystem = ActorSystem(SYSTEM_NAME)
 }

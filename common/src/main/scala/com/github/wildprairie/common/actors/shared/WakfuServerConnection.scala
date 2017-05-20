@@ -13,6 +13,5 @@ object WakfuServerConnection {
 }
 
 final class WakfuServerConnection(connection: ActorRef, handler: ActorRef)
-  extends ConnectionHandler(connection, handler)
-    with WakfuServerMessageReceiving {
-}
+    extends ConnectionHandler(connection, handler)
+    with WakfuServerMessageReceiving {}

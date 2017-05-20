@@ -10,6 +10,7 @@ import com.github.wakfutcp.protocol.messages.forClient._
 import com.github.wakfutcp.protocol.messages.forServer.ClientDispatchAuthenticationMessage.CredentialData
 import com.github.wakfutcp.protocol.messages.forServer._
 import com.github.wakfutcp.traits.StatefulActor
+import com.github.wildprairie.common.actors.auth.AccountAuthenticator.UserAccount
 import com.github.wildprairie.common.actors.shared.{Authenticator, WorldServerSpec}
 import com.github.wildprairie.common.actors.world.TokenAuthenticator
 import com.github.wildprairie.common.traits.SaltGenerator
@@ -26,14 +27,20 @@ object AuthHandler {
   final case object ProtocolVerification extends AuthState
   final case object AwaitingPublicKey extends AuthState
   final case class AwaitingLogin(salt: Long, privateKey: PrivateKey) extends AuthState
-  final case class CheckingAuthentication(data: ClientDispatchAuthenticationMessage.CredentialData) extends AuthState
-  final case class AcquiringWorldsInfo(account: AccountInformation) extends AuthState
-  final case class SelectingWorld(worldsSpec: List[WorldServerSpec], account: AccountInformation) extends AuthState
+  final case class CheckingAuthentication(data: ClientDispatchAuthenticationMessage.CredentialData)
+      extends AuthState
+  final case class AcquiringWorldsInfo(account: UserAccount) extends AuthState
+  final case class SelectingWorld(worldsSpec: List[WorldServerSpec], account: UserAccount)
+      extends AuthState
   final case class AwaitingWorldAck(spec: WorldServerSpec) extends AuthState
 }
 
 class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
-  extends Actor with StatefulActor with ActorLogging with Stash with SaltGenerator {
+    extends Actor
+    with StatefulActor
+    with ActorLogging
+    with Stash
+    with SaltGenerator {
   import AuthHandler._
 
   override type State = AuthState
@@ -58,7 +65,7 @@ class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
 
   override def initialState: List[AuthState] = List(ProtocolVerification)
 
-  def handleProtocol : StatefulReceive =
+  def handleProtocol: StatefulReceive =
     _ => {
       case ClientVersionMessage(versionWithBuild) =>
         log.info(s"protocol: version=$versionWithBuild")
@@ -85,40 +92,42 @@ class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         setStates(List(CheckingAuthentication(data)))
     }
 
-  def handleAuthenticationCheck(data: ClientDispatchAuthenticationMessage.CredentialData): StatefulReceive = {
+  def handleAuthenticationCheck(
+    data: ClientDispatchAuthenticationMessage.CredentialData): StatefulReceive = {
     import ClientDispatchAuthenticationResultMessage._
-    _ => {
-      case Authenticator.Success(_, account: AccountInformation) =>
-        log.info(s"auth: login successfully, account=$account")
-        client !! ClientDispatchAuthenticationResultMessage(
-          Result.Success,
-          Some(account)
-        )
-        unstashAll()
-        server ! AuthServer.GetWorldsSpec
-        setStates(List(AcquiringWorldsInfo(account)))
+    _ =>
+      {
+        case Authenticator.Success(_, account: UserAccount) =>
+          log.info(s"auth: login successfully, account=$account")
+          client !! ClientDispatchAuthenticationResultMessage(
+            Result.Success,
+            Some(account.info)
+          )
+          unstashAll()
+          server ! AuthServer.GetWorldsSpec
+          setStates(List(AcquiringWorldsInfo(account)))
 
-      case Authenticator.Failure(_, reason) =>
-        log.info(s"auth: failure, reason=$reason")
-        val result = reason match {
-          case Authenticator.FailureReason.WrongCredentials =>
-            Result.InvalidLogin
-          case Authenticator.FailureReason.AlreadyConnected =>
-            Result.Unknown
-          case Authenticator.FailureReason.Banned =>
-            Result.Banned
-          case Authenticator.FailureReason.UnknownException =>
-            Result.InvalidLogin
-        }
-        client !! ClientDispatchAuthenticationResultMessage(result, None)
+        case Authenticator.Failure(_, reason) =>
+          log.info(s"auth: failure, reason=$reason")
+          val result = reason match {
+            case Authenticator.FailureReason.WrongCredentials =>
+              Result.InvalidLogin
+            case Authenticator.FailureReason.AlreadyConnected =>
+              Result.Unknown
+            case Authenticator.FailureReason.Banned =>
+              Result.Banned
+            case Authenticator.FailureReason.UnknownException =>
+              Result.InvalidLogin
+          }
+          client !! ClientDispatchAuthenticationResultMessage(result, None)
 
-      case _ =>
-        stash()
-    }
+        case _ =>
+          stash()
+      }
   }
 
-  def handleWorldsSpecAcquisition(account: AccountInformation): StatefulReceive = {
-    _ => {
+  def handleWorldsSpecAcquisition(account: UserAccount): StatefulReceive = { _ =>
+    {
       case AuthServer.WorldsSpec(worldsSpec) =>
         log.info(s"worlds spec: $worldsSpec")
         unstashAll()
@@ -129,7 +138,8 @@ class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
     }
   }
 
-  def handleWorldSelection(worldsSpec: List[WorldServerSpec], account: AccountInformation): StatefulReceive =
+  def handleWorldSelection(worldsSpec: List[WorldServerSpec],
+                           account: UserAccount): StatefulReceive =
     _ => {
       case ClientProxiesRequestMessage() =>
         log.info("proxies req")

@@ -17,8 +17,7 @@ object WorldServer {
   sealed trait Message
 }
 
-class WorldServer(authenticator: ActorRef)
-  extends WakfuServer {
+class WorldServer(authenticator: ActorRef) extends WakfuServer {
   import WakfuServer._
 
   override def preStart(): Unit = {
@@ -44,25 +43,37 @@ class WorldServer(authenticator: ActorRef)
     val version = config.getString("world.version").split("\\.")
     new WorldServerSpec(
       cluster.selfAddress,
-      new WorldInfo(id, Version.WithBuild(
-        Version(
-          version(0).toByte,
-          version(1).toShort,
-          version(2).toByte
+      new WorldInfo(
+        id,
+        Version.WithBuild(
+          Version(
+            version(0).toByte,
+            version(1).toShort,
+            version(2).toByte
+          ),
+          "-1"
         ),
-        "-1"
-      ), Array.empty, locked),
-      new Proxy(id, name, community, ProxyServer(config.getString("world.host"), Array(config.getInt("world.port"))), 0)
+        Array.empty,
+        locked
+      ),
+      new Proxy(
+        id,
+        name,
+        community,
+        ProxyServer(config.getString("world.host"), Array(config.getInt("world.port"))),
+        0
+      )
     )
   }
 
   def handleClusterEvents: Receive = {
     case MemberUp(member) if member.hasRole(ROLE_AUTH) =>
       log.info(s"dispatching world status to $member")
-      val authServer = context.actorSelection(member.address + ActorPaths.Auth.AuthServer.toString())
+      val authServer =
+        context.actorSelection(member.address + ActorPaths.Auth.AuthServer.toString())
       authServer ! AuthServer.UpdateWorldStatus(spec)
 
-    case msg@_ =>
+    case msg @ _ =>
       log.info(s"cluster event: $msg")
   }
 }

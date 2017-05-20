@@ -1,5 +1,8 @@
 # Created by https://www.gitignore.io/api/sbt,scala,intellij
 
+# akka journal
+world/journal/
+
 ### Resources ###
 common/src/main/resources/*.der
 common/src/main/resources/*.pem
