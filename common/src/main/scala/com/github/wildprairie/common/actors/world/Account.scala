@@ -2,7 +2,10 @@ package com.github.wildprairie.common.actors.world
 
 import akka.actor.{ActorRef, Props, Stash}
 import com.github.wakfutcp.protocol.raw.CharacterDataSet.ForCharacterListSet
-import com.github.wildprairie.common.actors.world.Character.{CharacterCreationData, GetCharacterListData}
+import com.github.wildprairie.common.actors.world.Character.{
+  CharacterCreationData,
+  GetCharacterListData
+}
 
 import scala.collection.mutable.ListBuffer
 
@@ -39,12 +42,14 @@ class Account(accountId: Int) extends SemiPersistentActor with Stash {
 
   override def initialState: State = State(List())
 
+  override def persistenceId: String = s"account-$accountId"
+
   val characterRefs: ListBuffer[ActorRef] = ListBuffer()
 
   override def recoveryCompleted(): Unit = {
-    if(characterRefs.isEmpty && getState.characters.nonEmpty) {
+    if (characterRefs.isEmpty && getState.characters.nonEmpty) {
       // if we're loading from a snapshot
-      for(cid <- getState.characters)
+      for (cid <- getState.characters)
         characterRefs += context.actorOf(Character.props(cid, accountId))
     }
   }
@@ -53,7 +58,7 @@ class Account(accountId: Int) extends SemiPersistentActor with Stash {
     case NewCharacter(data) =>
       persist(CharacterCreated(data))
     case GetCharacters =>
-      if(characterRefs.nonEmpty) {
+      if (characterRefs.nonEmpty) {
         characterRefs.foreach(_ ! GetCharacterListData)
         context.become(dispatchCharacterList(sender())(Nil, characterRefs.length))
       } else {
@@ -61,12 +66,12 @@ class Account(accountId: Int) extends SemiPersistentActor with Stash {
       }
   }
 
-  def dispatchCharacterList(asker: ActorRef)(list: List[ForCharacterListSet], remaining: Int): Receive = {
+  def dispatchCharacterList(asker: ActorRef)(list: List[ForCharacterListSet],
+                                             remaining: Int): Receive = {
     case set: ForCharacterListSet =>
-      if(remaining > 1) {
+      if (remaining > 1) {
         context.become(dispatchCharacterList(asker)(set :: list, remaining - 1))
-      }
-      else {
+      } else {
         unstashAll()
         asker ! CharacterList(set :: list)
         context.become(elseReceiveCommand)
@@ -85,6 +90,4 @@ class Account(accountId: Int) extends SemiPersistentActor with Stash {
       characterRefs += ref
       state.copy(characters = data.id :: state.characters)
   }
-
-  override val persistenceId = s"account-$accountId"
 }

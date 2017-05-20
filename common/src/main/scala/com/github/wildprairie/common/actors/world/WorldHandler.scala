@@ -136,19 +136,20 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         import scala.concurrent.duration._
 
         val reservation =
-          context.actorSelection("/user/world-server/character-id-supply")
+          context
+            .actorSelection("/user/world-server/character-id-supply")
             .?(ReserveCharacter(msg.name))(5.seconds)
-            .mapTo[CharacterIdentifierSupply.CreationResult]
+            .mapTo[CharacterIdentifierSupply.ReservationResult]
 
         // respond the client
         reservation.map {
-            case CharacterIdentifierSupply.Success(_) =>
-              CharacterCreationResultMessage.Success
-            case CharacterIdentifierSupply.NameIsTaken =>
-              CharacterCreationResultMessage.NameIsTaken
-            case CharacterIdentifierSupply.NameIsInvalid =>
-              CharacterCreationResultMessage.NameIsInvalid
-          }.map(m => Tcp.Write(m.wrap))
+          case CharacterIdentifierSupply.Success(_) =>
+            CharacterCreationResultMessage.Success
+          case CharacterIdentifierSupply.NameIsTaken =>
+            CharacterCreationResultMessage.NameIsTaken
+          case CharacterIdentifierSupply.NameIsInvalid =>
+            CharacterCreationResultMessage.NameIsInvalid
+        }.map(m => Tcp.Write(m.wrap))
           .pipeTo(client)
 
         // let the account know
@@ -156,9 +157,17 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
           case CharacterIdentifierSupply.Success(id) =>
             NewCharacter(
               CharacterCreationData(
-                id, msg.sex, msg.skinColorIndex, msg.hairColorIndex, msg.pupilColorIndex,
-                msg.skinColorFactor, msg.hairColorFactor, msg.clothIndex, msg.faceIndex,
-                msg.breed, msg.name
+                id,
+                msg.sex,
+                msg.skinColorIndex,
+                msg.hairColorIndex,
+                msg.pupilColorIndex,
+                msg.skinColorFactor,
+                msg.hairColorFactor,
+                msg.clothIndex,
+                msg.faceIndex,
+                msg.breed,
+                msg.name
               )
             )
         }.pipeTo(handler)

@@ -45,7 +45,7 @@ object Character {
     nationId: Int = 0,
     guildId: Int = -1,
     instanceId: Short = 0
-     // add more later...
+    // add more later...
   )
 
   sealed trait Cmd
@@ -57,6 +57,8 @@ object Character {
 
 class Character(id: Long, ownerId: Long) extends SemiPersistentActor {
   import Character._
+  override type State = Character.State
+  override type Event = Character.Evt
 
   def this(data: Character.CharacterCreationData, ownerId: Long) {
     this(data.id, ownerId)
@@ -76,10 +78,9 @@ class Character(id: Long, ownerId: Long) extends SemiPersistentActor {
     )
   }
 
-  override type State = Character.State
-  override type Event = Character.Evt
-
   override def initialState: State = State()
+
+  override def persistenceId: String = s"character-$id"
 
   override def updateState(st: State, ev: Event): State = ev match {
     case _ => st
@@ -100,27 +101,27 @@ class Character(id: Long, ownerId: Long) extends SemiPersistentActor {
             Breed(st.breed) ::
             ActiveEquipmentSheet(st.activeEquipmentSheet) ::
             Appearance(
-              st.sex,
-              st.skinColorIndex,
-              st.hairColorIndex,
-              st.pupilColorIndex,
-              st.skinColorFactor,
-              st.hairColorFactor,
-              st.clothIndex,
-              st.faceIndex,
-              st.title
-            ) ::
+            st.sex,
+            st.skinColorIndex,
+            st.hairColorIndex,
+            st.pupilColorIndex,
+            st.skinColorFactor,
+            st.hairColorFactor,
+            st.clothIndex,
+            st.faceIndex,
+            st.title
+          ) ::
             EquipmentAppearance(Array()) ::
             CreationData(
-              Some(
-                CreationDataCreationData(
-                  newCharacter = st.isNew,
-                  needsRecustom = false,
-                  0,
-                  needInitialXp = false
-                )
+            Some(
+              CreationDataCreationData(
+                newCharacter = st.isNew,
+                needsRecustom = false,
+                0,
+                needInitialXp = false
               )
-            ) ::
+            )
+          ) ::
             Xp(st.xp) ::
             NationId(st.nationId) ::
             GuildId(st.guildId) ::
@@ -129,6 +130,4 @@ class Character(id: Long, ownerId: Long) extends SemiPersistentActor {
             HNil
         )
   }
-
-  override def persistenceId: String = s"character-$id"
 }

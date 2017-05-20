@@ -18,13 +18,13 @@ object CharacterIdentifierSupply {
 
   final case class ReservedCharacter(name: String) extends Evt
 
-  sealed trait CreationResult
+  sealed trait ReservationResult
 
-  final case class Success(id: Long) extends CreationResult
+  final case class Success(id: Long) extends ReservationResult
 
-  case object NameIsTaken extends CreationResult
+  case object NameIsTaken extends ReservationResult
 
-  case object NameIsInvalid extends CreationResult
+  case object NameIsInvalid extends ReservationResult
 }
 
 class CharacterIdentifierSupply extends SemiPersistentActor {
@@ -35,6 +35,8 @@ class CharacterIdentifierSupply extends SemiPersistentActor {
 
   override def initialState: State =
     State(0, List())
+
+  override def persistenceId: String = "character-id-supply"
 
   override def updateState(
     st: State,
@@ -49,13 +51,11 @@ class CharacterIdentifierSupply extends SemiPersistentActor {
 
   override def elseReceiveCommand: Receive = {
     case ReserveCharacter(name) =>
-      if(getState.reservedNames.contains(name)) {
+      if (getState.reservedNames.contains(name)) {
         sender() ! NameIsTaken
       } else {
         persist(ReservedCharacter(name))
         sender() ! Success(getState.idCounter)
       }
   }
-
-  override def persistenceId: String = "character-id-supply"
 }
