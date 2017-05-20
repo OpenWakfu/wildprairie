@@ -32,7 +32,7 @@ object AccountHandler {
 // account handler gets initialized with the account id
 // persistence id is unique and derived from the id
 // upon instantiation it replays it's history (most likely loading the great part of it from a snapshot)
-class AccountHandler(val accountId: Int) extends SemiPersistentActor {
+class AccountHandler(accountId: Int) extends SemiPersistentActor {
   import AccountHandler._
   override type State = AccountHandler.State
   override type Event = AccountHandler.Evt

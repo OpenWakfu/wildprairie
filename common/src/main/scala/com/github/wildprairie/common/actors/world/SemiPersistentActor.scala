@@ -21,7 +21,7 @@ trait SemiPersistentActor extends PersistentActor {
 
   def updateState(st: State, ev: Event): State
 
-  def getState: State = state
+  final def getState: State = state
 
   def elseReceiveCommand: Receive
 

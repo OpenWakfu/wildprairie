@@ -8,6 +8,7 @@ case class Account(
   hashedPassword: String,
   community: Community
 )
+
 object Account {
   import com.github.wildprairie.common.model.Database.context._
 

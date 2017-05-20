@@ -43,7 +43,7 @@ class WorldServer(authenticator: ActorRef) extends WakfuServer {
     val version = config.getString("world.version").split("\\.")
     new WorldServerSpec(
       cluster.selfAddress,
-      new WorldInfo(
+      WorldInfo(
         id,
         Version.WithBuild(
           Version(
@@ -56,7 +56,7 @@ class WorldServer(authenticator: ActorRef) extends WakfuServer {
         Array.empty,
         locked
       ),
-      new Proxy(
+      Proxy(
         id,
         name,
         community,
