@@ -6,5 +6,5 @@ import io.getquill.{PostgresAsyncContext, SnakeCase}
   * Created by jacek on 19.05.17.
   */
 object Database {
-  lazy val context = new PostgresAsyncContext[SnakeCase]("db")
+  val context = new PostgresAsyncContext[SnakeCase]("db")
 }

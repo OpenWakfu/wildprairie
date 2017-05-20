@@ -10,6 +10,7 @@ import com.github.wakfutcp.protocol.messages.forClient._
 import com.github.wakfutcp.protocol.messages.forServer.ClientDispatchAuthenticationMessage.CredentialData
 import com.github.wakfutcp.protocol.messages.forServer._
 import com.github.wakfutcp.traits.StatefulActor
+import com.github.wildprairie.common.actors.auth.AccountAuthenticator.UserAccount
 import com.github.wildprairie.common.actors.shared.{Authenticator, WorldServerSpec}
 import com.github.wildprairie.common.actors.world.TokenAuthenticator
 import com.github.wildprairie.common.traits.SaltGenerator
@@ -28,14 +29,18 @@ object AuthHandler {
   final case class AwaitingLogin(salt: Long, privateKey: PrivateKey) extends AuthState
   final case class CheckingAuthentication(data: ClientDispatchAuthenticationMessage.CredentialData)
       extends AuthState
-  final case class AcquiringWorldsInfo(account: AccountInformation) extends AuthState
-  final case class SelectingWorld(worldsSpec: List[WorldServerSpec], account: AccountInformation)
+  final case class AcquiringWorldsInfo(account: UserAccount) extends AuthState
+  final case class SelectingWorld(worldsSpec: List[WorldServerSpec], account: UserAccount)
       extends AuthState
   final case class AwaitingWorldAck(spec: WorldServerSpec) extends AuthState
 }
 
 class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
-  extends Actor with StatefulActor with ActorLogging with Stash with SaltGenerator {
+    extends Actor
+    with StatefulActor
+    with ActorLogging
+    with Stash
+    with SaltGenerator {
   import AuthHandler._
 
   override type State = AuthState
@@ -92,11 +97,11 @@ class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
     import ClientDispatchAuthenticationResultMessage._
     _ =>
       {
-        case Authenticator.Success(_, account: AccountInformation) =>
+        case Authenticator.Success(_, account: UserAccount) =>
           log.info(s"auth: login successfully, account=$account")
           client !! ClientDispatchAuthenticationResultMessage(
             Result.Success,
-            Some(account)
+            Some(account.info)
           )
           unstashAll()
           server ! AuthServer.GetWorldsSpec
@@ -121,7 +126,7 @@ class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
       }
   }
 
-  def handleWorldsSpecAcquisition(account: AccountInformation): StatefulReceive = { _ =>
+  def handleWorldsSpecAcquisition(account: UserAccount): StatefulReceive = { _ =>
     {
       case AuthServer.WorldsSpec(worldsSpec) =>
         log.info(s"worlds spec: $worldsSpec")
@@ -134,7 +139,7 @@ class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
   }
 
   def handleWorldSelection(worldsSpec: List[WorldServerSpec],
-                           account: AccountInformation): StatefulReceive =
+                           account: UserAccount): StatefulReceive =
     _ => {
       case ClientProxiesRequestMessage() =>
         log.info("proxies req")

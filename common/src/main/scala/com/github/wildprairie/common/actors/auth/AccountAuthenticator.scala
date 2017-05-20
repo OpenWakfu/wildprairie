@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorLogging, Props}
 import com.github.wakfutcp.protocol.messages.forClient.AccountInformation
 import com.github.wakfutcp.protocol.messages.forServer.ClientDispatchAuthenticationMessage
 import com.github.wakfutcp.protocol.protobuf.account.Status
+import com.github.wildprairie.common.actors.auth.AccountAuthenticator.UserAccount
 import com.github.wildprairie.common.actors.shared.Authenticator
 import com.github.wildprairie.common.model.Account
 import io.github.nremond.SecureHash
@@ -16,12 +17,14 @@ import scala.concurrent.Future
 object AccountAuthenticator {
   def props(): Props =
     Props(classOf[AccountAuthenticator])
+
+  final case class UserAccount(account: Account, info: AccountInformation)
 }
 
 class AccountAuthenticator
     extends Actor
     with ActorLogging
-    with Authenticator[ClientDispatchAuthenticationMessage.CredentialData, AccountInformation] {
+    with Authenticator[ClientDispatchAuthenticationMessage.CredentialData, UserAccount] {
   import Authenticator._
   import context.dispatcher
 
@@ -31,7 +34,6 @@ class AccountAuthenticator
 
     run(Account.getAccountByLogin(login)).map { opt =>
       opt.headOption.flatMap { acc =>
-        println(acc)
         if (SecureHash.validatePassword(password, acc.hashedPassword))
           Some(acc)
         else None
@@ -45,7 +47,13 @@ class AccountAuthenticator
 
       validateAccount(user.login, user.password).map {
         case Some(acc) =>
-          Success(user, AccountInformation(acc.community, None, Status(Map())))
+          Success(
+            user,
+            UserAccount(
+              acc,
+              AccountInformation(acc.community, None, Status(Map()))
+            )
+          )
         case None =>
           Failure(user, FailureReason.WrongCredentials)
       }.pipeTo(sender())

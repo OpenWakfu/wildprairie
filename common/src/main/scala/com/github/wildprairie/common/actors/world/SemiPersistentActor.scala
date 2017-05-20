@@ -5,20 +5,23 @@ import akka.persistence._
 /**
   * Created by jacek on 20.05.17.
   */
-
 // this is just a concept of implementation
 trait SemiPersistentActor extends PersistentActor {
   type State
 
   type Event
 
-  private[this] var state: State = _
+  private[this] var state: State = initialState
 
   val snapShotInterval = 10000
 
   def recoveryCompleted(): Unit = ()
 
+  def initialState: State
+
   def updateState(st: State, ev: Event): State
+
+  def getState: State = state
 
   def elseReceiveCommand: Receive
 
@@ -40,9 +43,9 @@ trait SemiPersistentActor extends PersistentActor {
     case SaveSnapshotSuccess(metadata) =>
       // delete all messages up to the point when the snapshot happened
       deleteMessages(metadata.sequenceNr)
-      // TODO: we can probably delete old unneeded snapshots too here
+    // TODO: we can probably delete old unneeded snapshots too here
     case SaveSnapshotFailure(metadata, reason) =>
-      //
+    //
   }
 
   override def receiveCommand: Receive =

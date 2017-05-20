@@ -4,7 +4,7 @@ import java.time.Instant
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, Props}
-import com.github.wakfutcp.protocol.messages.forClient.AccountInformation
+import com.github.wildprairie.common.actors.auth.AccountAuthenticator.UserAccount
 import com.github.wildprairie.common.actors.shared.Authenticator
 
 /**
@@ -17,16 +17,15 @@ object TokenAuthenticator {
     Props(classOf[TokenAuthenticator])
 
   sealed trait Message
-  final case class TokenGenerationRequest(account: AccountInformation) extends Message
-  final case class TokenGenerationResult(token: String, account: AccountInformation) extends Message
+  final case class TokenGenerationRequest(account: UserAccount) extends Message
+  final case class TokenGenerationResult(token: String, account: UserAccount) extends Message
   final case object CleanupTokens extends Message
 
   val TOKEN_CLEANUP_DELAY: FiniteDuration = 1.minute
   val TOKEN_TIMEOUT: FiniteDuration = 1.minute
 }
 
-class TokenAuthenticator extends Actor
-  with ActorLogging with Authenticator[String, AccountInformation] {
+class TokenAuthenticator extends Actor with ActorLogging with Authenticator[String, UserAccount] {
   import TokenAuthenticator._
   import Authenticator._
   import context._
@@ -42,7 +41,7 @@ class TokenAuthenticator extends Actor
   override def receive: Receive =
     handleRequest(Map())
 
-  def handleRequest(tokens: Map[String, (Long, AccountInformation)]): Receive = {
+  def handleRequest(tokens: Map[String, (Long, UserAccount)]): Receive = {
     case CleanupTokens =>
       log.info("cleaning up invalid tokens")
       val validTokens = tokens.filter(_._2._1 > Instant.now.getEpochSecond)
