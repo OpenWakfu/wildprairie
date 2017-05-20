@@ -7,8 +7,8 @@ import com.github.wakfutcp.protocol.raw.CharacterDataSet.ForCharacterListSet
   * Created by jacek on 20.05.17.
   */
 object Character {
-  def props(id: Long, ownerId: Long): Props =
-    Props(classOf[Character], id, ownerId)
+  def props(charId: Long, ownerId: Long): Props =
+    Props(classOf[Character], charId, ownerId)
 
   def props(data: CharacterCreationData, ownerId: Long): Props =
     Props(classOf[Character], data, ownerId)
@@ -55,7 +55,7 @@ object Character {
   sealed trait Evt
 }
 
-class Character(id: Long, ownerId: Long) extends SemiPersistentActor {
+class Character(charId: Long, ownerId: Long) extends SemiPersistentActor {
   import Character._
   override type State = Character.State
   override type Event = Character.Evt
@@ -80,7 +80,7 @@ class Character(id: Long, ownerId: Long) extends SemiPersistentActor {
 
   override def initialState: State = State()
 
-  override def persistenceId: String = s"character-$id"
+  override def persistenceId: String = s"character-$charId"
 
   override def updateState(st: State, ev: Event): State = ev match {
     case _ => st
@@ -88,46 +88,62 @@ class Character(id: Long, ownerId: Long) extends SemiPersistentActor {
 
   override def elseReceiveCommand: Receive = {
     case GetCharacterListData =>
-      import com.github.wakfutcp.protocol.raw.CharacterSerialized._
+      import Data._
       import shapeless._
-
-      val st = getState
 
       sender() !
         ForCharacterListSet(
-          Id(id) :: // generate a unique character id
-            Identity(0, ownerId) ::
-            Name(st.name) ::
-            Breed(st.breed) ::
-            ActiveEquipmentSheet(st.activeEquipmentSheet) ::
-            Appearance(
-            st.sex,
-            st.skinColorIndex,
-            st.hairColorIndex,
-            st.pupilColorIndex,
-            st.skinColorFactor,
-            st.hairColorFactor,
-            st.clothIndex,
-            st.faceIndex,
-            st.title
-          ) ::
-            EquipmentAppearance(Array()) ::
-            CreationData(
-            Some(
-              CreationDataCreationData(
-                newCharacter = st.isNew,
-                needsRecustom = false,
-                0,
-                needInitialXp = false
-              )
-            )
-          ) ::
-            Xp(st.xp) ::
-            NationId(st.nationId) ::
-            GuildId(st.guildId) ::
-            GuildBlazon(0) ::
-            InstanceId(st.instanceId) ::
-            HNil
+          id :: identity :: name :: breed :: activeEquipmentSheet :: appearance ::
+            equipmentAppearance :: creationData :: xp :: nation :: guild ::
+            guildBlazon :: instance :: HNil
         )
+  }
+
+  object Data {
+    // helpers for serialization
+    import com.github.wakfutcp.protocol.raw.CharacterSerialized._
+
+    def id: Id = Id(charId)
+    def identity: Identity = Identity(0, ownerId)
+    def name: Name = Name(getState.name)
+    def breed: Breed = Breed(getState.breed)
+    def activeEquipmentSheet: ActiveEquipmentSheet =
+      ActiveEquipmentSheet(getState.activeEquipmentSheet)
+    def appearance: Appearance = {
+      val st = getState
+      Appearance(
+        st.sex,
+        st.skinColorIndex,
+        st.hairColorIndex,
+        st.pupilColorIndex,
+        st.skinColorFactor,
+        st.hairColorFactor,
+        st.clothIndex,
+        st.faceIndex,
+        st.title
+      )
+    }
+    def equipmentAppearance: EquipmentAppearance =
+      EquipmentAppearance(Array()) // TODO: handle this
+    def creationData: CreationData =
+      CreationData(
+        Some(
+          CreationDataCreationData(
+            newCharacter = getState.isNew,
+            needsRecustom = false,
+            0,
+            needInitialXp = false
+          )
+        )
+      )
+    def xp: Xp = Xp(getState.xp)
+    def nation: NationId =
+      NationId(getState.nationId)
+    def guild: GuildId =
+      GuildId(getState.guildId)
+    def guildBlazon: GuildBlazon =
+      GuildBlazon(0)
+    def instance: InstanceId =
+      InstanceId(getState.instanceId)
   }
 }
