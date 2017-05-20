@@ -7,9 +7,9 @@ import akka.actor.Actor
   */
 object Authenticator {
   sealed trait Message
-  final case class Authenticate[TIn](user: TIn) extends Message
-  final case class Success[TIn, TOut](user: TIn, output: TOut) extends Message
-  final case class Failure[TIn](user: TIn, reason: FailureReason) extends Message
+  final case class Authenticate[TIn](input: TIn) extends Message
+  final case class Success[TIn, TOut](input: TIn, output: TOut) extends Message
+  final case class Failure[TIn](input: TIn, reason: FailureReason) extends Message
 
   sealed trait FailureReason
   object FailureReason {

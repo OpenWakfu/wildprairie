@@ -12,9 +12,8 @@ import com.github.wakfutcp.protocol.messages.forServer._
 import com.github.wakfutcp.traits.StatefulActor
 import com.github.wildprairie.common.actors.shared.{Authenticator, WorldServerSpec}
 import com.github.wildprairie.common.actors.world.TokenAuthenticator
+import com.github.wildprairie.common.traits.SaltGenerator
 import com.github.wildprairie.common.utils._
-
-import scala.util.Random
 
 /**
   * Created by hussein on 16/05/17.
@@ -33,17 +32,10 @@ object AuthHandler {
   final case class SelectingWorld(worldsSpec: List[WorldServerSpec], account: AccountInformation)
       extends AuthState
   final case class AwaitingWorldAck(spec: WorldServerSpec) extends AuthState
-
-  private val rand = new Random()
-
-  def nextSalt: Long = rand.nextLong()
 }
 
 class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
-    extends Actor
-    with StatefulActor
-    with ActorLogging
-    with Stash {
+  extends Actor with StatefulActor with ActorLogging with Stash with SaltGenerator {
   import AuthHandler._
 
   override type State = AuthState
@@ -53,7 +45,7 @@ class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
       case ProtocolVerification =>
         handleProtocol
       case AwaitingPublicKey =>
-        handlePublicKeyReq
+        handlePublicKeyRequest
       case AwaitingLogin(salt, privateKey) =>
         handleAuthentication(salt, privateKey)
       case CheckingAuthentication(data) =>
@@ -76,7 +68,7 @@ class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         setStates(List(AwaitingPublicKey))
     }
 
-  def handlePublicKeyReq: StatefulReceive =
+  def handlePublicKeyRequest: StatefulReceive =
     _ => {
       case ClientPublicKeyRequestMessage(serverId) =>
         log.info(s"public key req: serverId=$serverId")
@@ -152,10 +144,10 @@ class AuthHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         )
 
       case AuthenticationTokenRequestMessage(serverId, accountId) =>
-        // TODO: ask world server for a token and dispatch the client
         log.info(s"selected world: id=$serverId, accountId=$accountId")
         worldsSpec.find(_.info.serverId == serverId) match {
           case Some(spec) =>
+            // TODO: timeout on token generation ack
             spec.tokenAuthenticatorActor ! TokenAuthenticator.TokenGenerationRequest(account)
             setStates(List(AwaitingWorldAck(spec)))
 

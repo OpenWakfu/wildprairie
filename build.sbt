@@ -54,10 +54,3 @@ lazy val world = (project in file("world"))
     moduleName := "wildprairie-world"
   )
   .dependsOn(common)
-
-lazy val master = (project in file("master"))
-  .settings(commonSettings)
-  .settings(
-    moduleName := "wildprairie-master"
-  )
-  .dependsOn(common)
