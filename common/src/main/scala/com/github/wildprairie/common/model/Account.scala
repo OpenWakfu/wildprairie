@@ -2,12 +2,13 @@ package com.github.wildprairie.common.model
 
 import com.github.wakfutcp.protocol.common.Community
 
-case class Account(
+final case class Account(
   id: Int,
   login: String,
   hashedPassword: String,
   community: Community
 )
+
 object Account {
   import com.github.wildprairie.common.model.Database.context._
 

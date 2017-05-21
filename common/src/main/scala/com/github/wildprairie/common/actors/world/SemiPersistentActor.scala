@@ -5,7 +5,6 @@ import akka.persistence._
 /**
   * Created by jacek on 20.05.17.
   */
-// this is just a concept of implementation
 trait SemiPersistentActor extends PersistentActor {
   type State
 
@@ -21,7 +20,9 @@ trait SemiPersistentActor extends PersistentActor {
 
   def updateState(st: State, ev: Event): State
 
-  def getState: State = state
+  final def setState(st: State): Unit = state = st
+
+  final def getState: State = state
 
   def elseReceiveCommand: Receive
 

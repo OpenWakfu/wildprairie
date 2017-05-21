@@ -12,12 +12,9 @@ import com.github.wakfutcp.traits.server.syntax._
 import com.github.wildprairie.common.actors.auth.AccountAuthenticator.UserAccount
 import com.github.wildprairie.common.actors.shared.Authenticator
 import com.github.wildprairie.common.actors.shared.Authenticator.{Failure, FailureReason, Success}
-import com.github.wildprairie.common.actors.world.AccountHandler.{
-  CharacterList,
-  CreateCharacter,
-  DeleteCharacter,
-  GetCharacters
-}
+import com.github.wildprairie.common.actors.world.User._
+import com.github.wildprairie.common.actors.world.Character.CharacterCreationData
+import com.github.wildprairie.common.actors.world.CharacterIdentifierSupply.ReserveCharacter
 import com.github.wildprairie.common.traits.SaltGenerator
 import com.github.wildprairie.common.utils.Cipher
 
@@ -44,6 +41,7 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
     with Stash
     with SaltGenerator {
   import WorldHandler._
+  import context._
 
   override type State = WorldState
 
@@ -103,16 +101,16 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         client !! WorldSelectionResultMessage.Success
         // TODO: send: FreeCompanionBreedIdMessage, ClientCalendarSynchronizationMessage, ClientSystemConfigurationMessage
         // TODO: send: ClientAdditionalCharacterSlotsUpdateMessage, CompanionListMessage
-        val handler = context.actorOf(AccountHandler.props(account.account.id))
-        handler
-          .?(GetCharacters)(5.seconds)
+        val user = context.actorOf(User.props(account.account.id))
+        user
+          .ask(GetCharacters)(5.seconds)
           .mapTo[CharacterList]
           .map { list =>
             Tcp.Write(CharactersListMessage(list.chars.toArray).wrap)
           }
           .pipeTo(client)
         unstashAll()
-        setStates(List(CharacterSelection(handler, account)))
+        setStates(List(CharacterSelection(user, account)))
 
       case Failure(_: String, reason) =>
         log.warning(s"token authentication failure: reason=$reason")
@@ -131,11 +129,59 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         stash()
     }
 
-  def handleCharacterSelection(handler: ActorRef, account: UserAccount): StatefulReceive =
+  def handleCharacterSelection(user: ActorRef, account: UserAccount): StatefulReceive =
     _ => {
+      case CharacterDeletionMessage(charId) =>
+        user ! DeleteCharacter(charId)
+        become({
+          case CharacterDeletionSuccess(cid) if charId == cid =>
+            client !! CharacterDeletionResultMessage(cid, successful = true)
+            unbecome()
+
+          case _: CharacterDeletionSuccess | CharacterDeletionFailure =>
+            client !! CharacterDeletionResultMessage(charId, successful = false)
+            unbecome()
+        }, false)
+
+      case CharacterSelectionMessage(charId, _) =>
+
       case msg: CharacterCreationMessage =>
-        val char = newCharacter(msg, account.account.id)
-        handler ! CreateCharacter(char)
+        actorSelection("/user/world-server/character-id-supply") ! ReserveCharacter(msg.name)
+        become({
+          case CharacterIdentifierSupply.Success(cid) =>
+            user ! CreateCharacter(
+              CharacterCreationData(
+                cid,
+                msg.sex,
+                msg.skinColorIndex,
+                msg.hairColorIndex,
+                msg.pupilColorIndex,
+                msg.skinColorFactor,
+                msg.hairColorFactor,
+                msg.clothIndex,
+                msg.faceIndex,
+                msg.breed,
+                msg.name
+              )
+            )
+            // await for validation on the account
+            become({
+              case CharacterCreationSuccess =>
+                client !! CharacterCreationResultMessage.Success
+                unbecome()
+                unbecome()
+              // instead of those we should transition to some
+              // enter the world stage
+            }, false)
+
+          case CharacterIdentifierSupply.NameIsTaken =>
+            client !! CharacterCreationResultMessage.NameIsTaken
+            unbecome()
+
+          case CharacterIdentifierSupply.NameIsInvalid =>
+            client !! CharacterCreationResultMessage.NameIsInvalid
+            unbecome()
+        }, false)
 
       // on charac create server sends:
       // CharacterCreationResultMessage
@@ -169,46 +215,4 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
       case msg @ _ =>
         log.info(s"received: $msg")
     }
-
-  // this is just a temporary solution (move it to a factory actor?)
-  def newCharacter(message: CharacterCreationMessage, accountId: Long): ForCharacterListSet = {
-    import com.github.wakfutcp.protocol.raw.CharacterSerialized._
-    import shapeless._
-
-    ForCharacterListSet(
-      Id(100) :: // generate a unique character id
-        Identity(0, accountId) ::
-        Name(message.name) ::
-        Breed(message.breed) ::
-        ActiveEquipmentSheet(0) ::
-        Appearance(
-        message.sex,
-        message.skinColorIndex,
-        message.hairColorIndex,
-        message.pupilColorIndex,
-        message.skinColorFactor,
-        message.hairColorFactor,
-        message.clothIndex,
-        message.faceIndex,
-        -1
-      ) ::
-        EquipmentAppearance(Array()) ::
-        CreationData(
-        Some(
-          CreationDataCreationData(
-            newCharacter = true,
-            needsRecustom = false,
-            0,
-            needInitialXp = false
-          )
-        )
-      ) ::
-        Xp(0) ::
-        NationId(0) ::
-        GuildId(-1) ::
-        GuildBlazon(0) ::
-        InstanceId(131) ::
-        HNil
-    )
-  }
 }
