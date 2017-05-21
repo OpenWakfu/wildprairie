@@ -27,7 +27,7 @@ object User {
 
   case object GetCharacters extends Cmd
 
-  final case class CharacterList(chars: List[ForCharacterListSet])
+  final case class CharactersList(chars: List[ForCharacterListSet])
 
   sealed trait Evt
 
@@ -95,7 +95,7 @@ class User(accountId: Int) extends SemiPersistentActor with ActorFolder with Sta
       fold[List[ForCharacterListSet]](characterRefs.values, GetCharacterListData)(Nil) {
         case (set: ForCharacterListSet, acc) =>
           set :: acc
-      }.map(CharacterList)
+      }.map(CharactersList)
         .pipeTo(sender())
   }
 
