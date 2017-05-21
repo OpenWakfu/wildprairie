@@ -41,6 +41,7 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
     with Stash
     with SaltGenerator {
   import WorldHandler._
+  import context._
 
   override type State = WorldState
 
@@ -130,35 +131,28 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
 
   def handleCharacterSelection(user: ActorRef, account: UserAccount): StatefulReceive =
     _ => {
+      case CharacterDeletionMessage(charId) =>
+        user ! DeleteCharacter(charId)
+        become {
+          case CharacterDeletionSuccess(cid) if charId == cid =>
+            client !! CharacterDeletionResultMessage(cid, successful = true)
+            unbecome()
+
+          case _ =>
+            client !! CharacterDeletionResultMessage(charId, successful = false)
+            unbecome()
+        }
+
       case CharacterSelectionMessage(charId, _) =>
+
       case msg: CharacterCreationMessage =>
-        import akka.pattern._
-        import context.dispatcher
-        import scala.concurrent.duration._
-
-        val reservation =
-          context
-            .actorSelection("/user/world-server/character-id-supply")
-            .?(ReserveCharacter(msg.name))(5.seconds)
-            .mapTo[CharacterIdentifierSupply.ReservationResult]
-
-        // respond the client
-        reservation.map {
-          case CharacterIdentifierSupply.Success(_) =>
-            CharacterCreationResultMessage.Success
-          case CharacterIdentifierSupply.NameIsTaken =>
-            CharacterCreationResultMessage.NameIsTaken
-          case CharacterIdentifierSupply.NameIsInvalid =>
-            CharacterCreationResultMessage.NameIsInvalid
-        }.map(m => Tcp.Write(m.wrap))
-          .pipeTo(client)
-
-        // let the account know
-        reservation.collect {
-          case CharacterIdentifierSupply.Success(id) =>
-            NewCharacter(
+        actorSelection("/user/world-server/character-id-supply") ! ReserveCharacter(msg.name)
+        become {
+          case CharacterIdentifierSupply.Success(cid) =>
+            client !! CharacterCreationResultMessage.Success
+            user ! NewCharacter(
               CharacterCreationData(
-                id,
+                cid,
                 msg.sex,
                 msg.skinColorIndex,
                 msg.hairColorIndex,
@@ -171,7 +165,16 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
                 msg.name
               )
             )
-        }.pipeTo(user)
+            unbecome()
+
+          case CharacterIdentifierSupply.NameIsTaken =>
+            client !! CharacterCreationResultMessage.NameIsTaken
+            unbecome()
+
+          case CharacterIdentifierSupply.NameIsInvalid =>
+            client !! CharacterCreationResultMessage.NameIsInvalid
+            unbecome()
+        }
 
       // on charac create server sends:
       // CharacterCreationResultMessage
