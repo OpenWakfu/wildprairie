@@ -9,8 +9,6 @@ import com.github.wildprairie.common.actors.world.Character.{
 }
 import scala.collection.mutable
 
-import scala.collection.mutable.ListBuffer
-
 /**
   * Created by jacek on 20.05.17.
   */
@@ -23,7 +21,7 @@ object User {
 
   sealed trait Cmd
 
-  final case class NewCharacter(data: CharacterCreationData) extends Cmd
+  final case class CreateCharacter(data: CharacterCreationData) extends Cmd
 
   final case class DeleteCharacter(id: Long) extends Cmd
 
@@ -41,7 +39,13 @@ object User {
 
   case class CharacterDeletionSuccess(characterId: Long) extends CharacterDeletionResult
 
-  case object CharacterDeletionFailed extends CharacterDeletionResult
+  case object CharacterDeletionFailure extends CharacterDeletionResult
+
+  sealed trait CharacterCreationResult
+
+  case object CharacterCreationSuccess extends CharacterCreationResult
+
+  case object CharacterCreationFailure extends CharacterCreationResult
 }
 
 class User(accountId: Int) extends SemiPersistentActor with ActorFolder with Stash {
@@ -66,11 +70,13 @@ class User(accountId: Int) extends SemiPersistentActor with ActorFolder with Sta
   }
 
   override def elseReceiveCommand: Receive = {
-    case NewCharacter(data) =>
+    case CreateCharacter(data) =>
+      // validate it... (character slots etc)
       persist(CharacterCreated(data))
 
       val ref = context.actorOf(Character.props(data, accountId))
       characterRefs += (data.id -> ref)
+      sender() ! CharacterCreationSuccess
 
     case DeleteCharacter(charId) =>
       if (getState.characters.contains(charId)) {
@@ -79,7 +85,7 @@ class User(accountId: Int) extends SemiPersistentActor with ActorFolder with Sta
         characterRefs -= charId
         sender() ! CharacterDeletionSuccess(charId)
       } else {
-        sender() ! CharacterDeletionFailed
+        sender() ! CharacterDeletionFailure
       }
 
     case GetCharacters =>

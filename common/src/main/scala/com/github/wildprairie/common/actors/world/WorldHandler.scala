@@ -138,7 +138,7 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
             client !! CharacterDeletionResultMessage(cid, successful = true)
             unbecome()
 
-          case _: CharacterDeletionSuccess | CharacterDeletionFailed =>
+          case _: CharacterDeletionSuccess | CharacterDeletionFailure =>
             client !! CharacterDeletionResultMessage(charId, successful = false)
             unbecome()
         }, false)
@@ -149,8 +149,7 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         actorSelection("/user/world-server/character-id-supply") ! ReserveCharacter(msg.name)
         become({
           case CharacterIdentifierSupply.Success(cid) =>
-            client !! CharacterCreationResultMessage.Success
-            user ! NewCharacter(
+            user ! CreateCharacter(
               CharacterCreationData(
                 cid,
                 msg.sex,
@@ -165,7 +164,15 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
                 msg.name
               )
             )
-            unbecome()
+            // await for validation on the account
+            become({
+              case CharacterCreationSuccess =>
+                client !! CharacterCreationResultMessage.Success
+                unbecome()
+                unbecome()
+              // instead of those we should transition to some
+              // enter the world stage
+            }, false)
 
           case CharacterIdentifierSupply.NameIsTaken =>
             client !! CharacterCreationResultMessage.NameIsTaken
