@@ -17,8 +17,13 @@ trait Aggregator[TIn, TOut] {
 
   // TODO: add timeout
   def aggregate(input: TIn, actors: List[ActorRef]): Unit = {
-    actors.foreach(_ ! input)
-    context.become(handleAggregateResult(input, actors, List()))
+    if(actors.isEmpty) {
+      self ! Result(input, List())
+    }
+    else {
+      actors.foreach(_ ! input)
+      context.become(handleAggregateResult(input, actors, List()))
+    }
   }
 
   def handleAggregateResult(input: TIn, actors: List[ActorRef], output: List[TOut]) : Receive = {
