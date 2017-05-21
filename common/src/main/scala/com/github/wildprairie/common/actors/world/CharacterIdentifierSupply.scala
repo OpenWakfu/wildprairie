@@ -51,7 +51,7 @@ class CharacterIdentifierSupply extends SemiPersistentActor {
 
   override def elseReceiveCommand: Receive = {
     case ReserveCharacter(name) =>
-      if (getState.reservedNames.contains(name)) {
+      if (getState.reservedNames.exists(_.compareToIgnoreCase(name) == 0)) {
         sender() ! NameIsTaken
       } else {
         persist(ReservedCharacter(name))

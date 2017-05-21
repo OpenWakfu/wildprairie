@@ -133,21 +133,21 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
     _ => {
       case CharacterDeletionMessage(charId) =>
         user ! DeleteCharacter(charId)
-        become {
+        become({
           case CharacterDeletionSuccess(cid) if charId == cid =>
             client !! CharacterDeletionResultMessage(cid, successful = true)
             unbecome()
 
-          case _ =>
+          case _: CharacterDeletionSuccess | CharacterDeletionFailed =>
             client !! CharacterDeletionResultMessage(charId, successful = false)
             unbecome()
-        }
+        }, false)
 
       case CharacterSelectionMessage(charId, _) =>
 
       case msg: CharacterCreationMessage =>
         actorSelection("/user/world-server/character-id-supply") ! ReserveCharacter(msg.name)
-        become {
+        become({
           case CharacterIdentifierSupply.Success(cid) =>
             client !! CharacterCreationResultMessage.Success
             user ! NewCharacter(
@@ -174,7 +174,7 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
           case CharacterIdentifierSupply.NameIsInvalid =>
             client !! CharacterCreationResultMessage.NameIsInvalid
             unbecome()
-        }
+        }, false)
 
       // on charac create server sends:
       // CharacterCreationResultMessage
