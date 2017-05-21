@@ -22,4 +22,16 @@ object Account {
       query[Account]
         .filter(_.login == lift(login))
     }
+
+  def getLastCreated: Quoted[Query[Account]] =
+    quote {
+      query[Account]
+        .sortBy(_.id)(Ord.desc)
+    }
+
+  def createAccount(account: Account): Quoted[Action[Account]] =
+    quote {
+      query[Account]
+        .insert(account)
+    }
 }

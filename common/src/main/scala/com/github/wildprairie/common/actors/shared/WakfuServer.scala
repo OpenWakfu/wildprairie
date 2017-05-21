@@ -16,20 +16,19 @@ object WakfuServer {
 }
 
 abstract class WakfuServer extends ClusteredActor {
-  override def preStart(): Unit =
+  override def preStart(): Unit = {
     super.preStart()
-  context.actorOf(
-    TcpServer.props(
-      new InetSocketAddress(host, port),
-      WakfuServerConnection.props,
-      newHandlerProps
-    ),
-    "tcp-server"
-  )
+    context.actorOf(
+      TcpServer.props(
+        new InetSocketAddress(host, port),
+        WakfuServerConnection.props,
+        newHandlerProps
+      ),
+      "tcp-server"
+    )
+  }
 
   def newHandlerProps: (ActorRef) => Props
   def host: String
   def port: Int
-
-  override def receive: Receive = PartialFunction.empty
 }

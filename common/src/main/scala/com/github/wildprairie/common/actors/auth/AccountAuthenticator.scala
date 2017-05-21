@@ -36,7 +36,8 @@ class AccountAuthenticator
       opt.headOption.flatMap { acc =>
         if (SecureHash.validatePassword(password, acc.hashedPassword))
           Some(acc)
-        else None
+        else
+          None
       }
     }
   }

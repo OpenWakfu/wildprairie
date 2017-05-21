@@ -3,10 +3,8 @@ package com.github.wildprairie.common.actors.world
 import java.security.PrivateKey
 
 import akka.actor.{ActorLogging, ActorRef, Props, Stash}
-import akka.io.Tcp
 import com.github.wakfutcp.protocol.messages.forClient._
 import com.github.wakfutcp.protocol.messages.forServer._
-import com.github.wakfutcp.protocol.raw.CharacterDataSet.ForCharacterListSet
 import com.github.wakfutcp.traits.StatefulActor
 import com.github.wakfutcp.traits.server.syntax._
 import com.github.wildprairie.common.actors.auth.AccountAuthenticator.UserAccount

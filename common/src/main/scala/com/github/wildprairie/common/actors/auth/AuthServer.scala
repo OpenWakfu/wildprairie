@@ -20,10 +20,8 @@ final class AuthServer(authenticator: ActorRef) extends WakfuServer {
 
   import com.github.wildprairie.common.actors.auth.AuthServer._
 
-  override def preStart(): Unit = {
-    super.preStart()
-    context.become(handleClusterEvents(List.empty))
-  }
+  override def receive: Receive =
+    handleClusterEvents(List())
 
   override def newHandlerProps: (ActorRef) => Props =
     client => AuthHandler.props(client, self, authenticator)
