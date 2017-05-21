@@ -12,7 +12,7 @@ import com.github.wakfutcp.traits.server.syntax._
 import com.github.wildprairie.common.actors.auth.AccountAuthenticator.UserAccount
 import com.github.wildprairie.common.actors.shared.Authenticator
 import com.github.wildprairie.common.actors.shared.Authenticator.{Failure, FailureReason, Success}
-import com.github.wildprairie.common.actors.world.Account._
+import com.github.wildprairie.common.actors.world.User._
 import com.github.wildprairie.common.actors.world.Character.CharacterCreationData
 import com.github.wildprairie.common.actors.world.CharacterIdentifierSupply.ReserveCharacter
 import com.github.wildprairie.common.traits.SaltGenerator
@@ -100,16 +100,16 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         client !! WorldSelectionResultMessage.Success
         // TODO: send: FreeCompanionBreedIdMessage, ClientCalendarSynchronizationMessage, ClientSystemConfigurationMessage
         // TODO: send: ClientAdditionalCharacterSlotsUpdateMessage, CompanionListMessage
-        val handler = context.actorOf(Account.props(account.account.id))
-        handler
-          .?(GetCharacters)(5.seconds)
+        val user = context.actorOf(User.props(account.account.id))
+        user
+          .ask(GetCharacters)(5.seconds)
           .mapTo[CharacterList]
           .map { list =>
             Tcp.Write(CharactersListMessage(list.chars.toArray).wrap)
           }
           .pipeTo(client)
         unstashAll()
-        setStates(List(CharacterSelection(handler, account)))
+        setStates(List(CharacterSelection(user, account)))
 
       case Failure(_: String, reason) =>
         log.warning(s"token authentication failure: reason=$reason")
@@ -128,8 +128,9 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         stash()
     }
 
-  def handleCharacterSelection(handler: ActorRef, account: UserAccount): StatefulReceive =
+  def handleCharacterSelection(user: ActorRef, account: UserAccount): StatefulReceive =
     _ => {
+      case CharacterSelectionMessage(charId, _) =>
       case msg: CharacterCreationMessage =>
         import akka.pattern._
         import context.dispatcher
@@ -170,7 +171,7 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
                 msg.name
               )
             )
-        }.pipeTo(handler)
+        }.pipeTo(user)
 
       // on charac create server sends:
       // CharacterCreationResultMessage

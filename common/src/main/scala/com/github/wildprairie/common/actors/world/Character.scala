@@ -7,6 +7,8 @@ import com.github.wakfutcp.protocol.raw.CharacterDataSet.ForCharacterListSet
   * Created by jacek on 20.05.17.
   */
 object Character {
+  import com.github.wakfutcp.protocol.raw.CharacterSerialized._
+
   def props(charId: Long, ownerId: Long): Props =
     Props(classOf[Character], charId, ownerId)
 
@@ -29,23 +31,26 @@ object Character {
 
   final case class State(
     name: String = "",
-    sex: Byte = -1,
-    skinColorIndex: Byte = -1,
-    hairColorIndex: Byte = -1,
-    pupilColorIndex: Byte = -1,
-    skinColorFactor: Byte = -1,
-    hairColorFactor: Byte = -1,
-    clothIndex: Byte = -1,
-    faceIndex: Byte = -1,
     breed: Short = -1,
+    appearance: Appearance = Appearance(
+      -1,
+      -1,
+      -1,
+      -1,
+      -1,
+      -1,
+      -1,
+      -1,
+      -1
+    ),
     xp: Long = 0,
+    nationId: Short = 0,
+    guildId: Long = 0,
+    guildBlazon: Long = 0,
+    instanceId: Short = 0,
     activeEquipmentSheet: Byte = 0,
-    title: Short = -1,
-    isNew: Boolean = true,
-    nationId: Int = 0,
-    guildId: Int = -1,
-    instanceId: Short = 0
-    // add more later...
+    creationData: CreationData = CreationData(None),
+    equipmentAppearance: EquipmentAppearance = EquipmentAppearance(Array())
   )
 
   sealed trait Cmd
@@ -60,22 +65,32 @@ class Character(charId: Long, ownerId: Long) extends SemiPersistentActor {
   override type State = Character.State
   override type Event = Character.Evt
 
+  // this constructor is only called to create a new character
   def this(data: Character.CharacterCreationData, ownerId: Long) {
     this(data.id, ownerId)
+    import com.github.wakfutcp.protocol.raw.CharacterSerialized._
+
     setState(
       State(
         name = data.name,
-        sex = data.sex,
-        skinColorIndex = data.skinColorIndex,
-        hairColorIndex = data.hairColorIndex,
-        pupilColorIndex = data.pupilColorIndex,
-        skinColorFactor = data.skinColorFactor,
-        hairColorFactor = data.hairColorFactor,
-        clothIndex = data.clothIndex,
-        faceIndex = data.faceIndex,
-        breed = data.breed
+        breed = data.breed,
+        appearance = Appearance(
+          skinColorIndex = data.skinColorIndex,
+          hairColorIndex = data.hairColorIndex,
+          pupilColorIndex = data.pupilColorIndex,
+          skinColorFactor = data.skinColorFactor,
+          hairColorFactor = data.hairColorFactor,
+          clothIndex = data.clothIndex,
+          faceIndex = data.faceIndex,
+          sex = data.sex,
+          currentTitle = -1
+        )
       )
     )
+    // save a snapshot after character creation
+    // so that the character can never be recovered
+    // into an uninitialized state
+    saveSnapshot(getState)
   }
 
   override def initialState: State = State()
@@ -88,18 +103,18 @@ class Character(charId: Long, ownerId: Long) extends SemiPersistentActor {
 
   override def elseReceiveCommand: Receive = {
     case GetCharacterListData =>
-      import Data._
+      import data._
       import shapeless._
 
       sender() !
         ForCharacterListSet(
           id :: identity :: name :: breed :: activeEquipmentSheet :: appearance ::
-            equipmentAppearance :: creationData :: xp :: nation :: guild ::
-            guildBlazon :: instance :: HNil
+            equipmentAppearance :: creationData :: xp :: nationId :: guildId ::
+            guildBlazon :: instanceId :: HNil
         )
   }
 
-  object Data {
+  object data {
     // helpers for serialization
     import com.github.wakfutcp.protocol.raw.CharacterSerialized._
 
@@ -109,41 +124,13 @@ class Character(charId: Long, ownerId: Long) extends SemiPersistentActor {
     def breed: Breed = Breed(getState.breed)
     def activeEquipmentSheet: ActiveEquipmentSheet =
       ActiveEquipmentSheet(getState.activeEquipmentSheet)
-    def appearance: Appearance = {
-      val st = getState
-      Appearance(
-        st.sex,
-        st.skinColorIndex,
-        st.hairColorIndex,
-        st.pupilColorIndex,
-        st.skinColorFactor,
-        st.hairColorFactor,
-        st.clothIndex,
-        st.faceIndex,
-        st.title
-      )
-    }
-    def equipmentAppearance: EquipmentAppearance =
-      EquipmentAppearance(Array()) // TODO: handle this
-    def creationData: CreationData =
-      CreationData(
-        Some(
-          CreationDataCreationData(
-            newCharacter = getState.isNew,
-            needsRecustom = false,
-            0,
-            needInitialXp = false
-          )
-        )
-      )
+    def appearance: Appearance = getState.appearance
+    def equipmentAppearance: EquipmentAppearance = getState.equipmentAppearance
+    def creationData: CreationData = getState.creationData
     def xp: Xp = Xp(getState.xp)
-    def nation: NationId =
-      NationId(getState.nationId)
-    def guild: GuildId =
-      GuildId(getState.guildId)
-    def guildBlazon: GuildBlazon =
-      GuildBlazon(0)
-    def instance: InstanceId =
-      InstanceId(getState.instanceId)
+    def nationId: NationId = NationId(getState.nationId)
+    def guildId: GuildId = GuildId(getState.guildId)
+    def guildBlazon: GuildBlazon = GuildBlazon(0)
+    def instanceId: InstanceId = InstanceId(getState.instanceId)
   }
 }

@@ -2,6 +2,7 @@ package com.github.wildprairie.common.actors.world
 
 import akka.actor.{ActorRef, Props, Stash}
 import com.github.wakfutcp.protocol.raw.CharacterDataSet.ForCharacterListSet
+import com.github.wildprairie.common.actors.shared.ActorFolder
 import com.github.wildprairie.common.actors.world.Character.{
   CharacterCreationData,
   GetCharacterListData
@@ -12,10 +13,10 @@ import scala.collection.mutable.ListBuffer
 /**
   * Created by jacek on 20.05.17.
   */
-object Account {
+object User {
 
   def props(id: Int): Props =
-    Props(classOf[Account], id)
+    Props(classOf[User], id)
 
   final case class State(characters: List[Long])
 
@@ -34,13 +35,13 @@ object Account {
   final case class CharacterCreated(data: CharacterCreationData) extends Evt
 }
 
-class Account(accountId: Int) extends SemiPersistentActor with Stash {
-  import Account._
+class User(accountId: Int) extends SemiPersistentActor with ActorFolder with Stash {
+  import User._
 
-  override type State = Account.State
-  override type Event = Account.Evt
+  override type State = User.State
+  override type Event = User.Evt
 
-  override def initialState: State = State(List())
+  override def initialState: State = State(Nil)
 
   override def persistenceId: String = s"account-$accountId"
 
@@ -48,7 +49,8 @@ class Account(accountId: Int) extends SemiPersistentActor with Stash {
 
   override def recoveryCompleted(): Unit = {
     if (characterRefs.isEmpty && getState.characters.nonEmpty) {
-      // if we're loading from a snapshot
+      // we only create actors when we've finished recovering
+      // and when a new character is created, never in event processing
       for (cid <- getState.characters)
         characterRefs += context.actorOf(Character.props(cid, accountId))
     }
@@ -58,28 +60,18 @@ class Account(accountId: Int) extends SemiPersistentActor with Stash {
     case NewCharacter(data) =>
       val ref = context.actorOf(Character.props(data, accountId))
       characterRefs += ref
-      
-      persist(CharacterCreated(data))
-    case GetCharacters =>
-      if (characterRefs.nonEmpty) {
-        characterRefs.foreach(_ ! GetCharacterListData)
-        context.become(dispatchCharacterList(sender())(Nil, characterRefs.length))
-      } else {
-        sender() ! CharacterList(Nil)
-      }
-  }
 
-  def dispatchCharacterList(asker: ActorRef)(list: List[ForCharacterListSet],
-                                             remaining: Int): Receive = {
-    case set: ForCharacterListSet =>
-      if (remaining > 1) {
-        context.become(dispatchCharacterList(asker)(set :: list, remaining - 1))
-      } else {
-        unstashAll()
-        asker ! CharacterList(set :: list)
-        context.become(elseReceiveCommand)
-      }
-    case _ => stash()
+      persist(CharacterCreated(data))
+
+    case GetCharacters =>
+      import akka.pattern._
+      import context.dispatcher
+
+      fold[List[ForCharacterListSet]](characterRefs, GetCharacterListData)(Nil) {
+        case (set: ForCharacterListSet, acc) =>
+          set :: acc
+      }.map(CharacterList)
+        .pipeTo(sender())
   }
 
   // define how events affect the state (this is called after events are persisted)
