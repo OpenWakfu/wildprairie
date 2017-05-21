@@ -2,6 +2,7 @@
 
 # akka journal
 world/journal/
+world/snapshots/
 
 ### Resources ###
 common/src/main/resources/*.der
