@@ -56,6 +56,9 @@ class Account(accountId: Int) extends SemiPersistentActor with Stash {
 
   override def elseReceiveCommand: Receive = {
     case NewCharacter(data) =>
+      val ref = context.actorOf(Character.props(data, accountId))
+      characterRefs += ref
+      
       persist(CharacterCreated(data))
     case GetCharacters =>
       if (characterRefs.nonEmpty) {
@@ -85,9 +88,6 @@ class Account(accountId: Int) extends SemiPersistentActor with Stash {
     ev: Event
   ): State = ev match {
     case CharacterCreated(data) =>
-      val ref = context.actorOf(Character.props(data, accountId))
-
-      characterRefs += ref
       state.copy(characters = data.id :: state.characters)
   }
 }
