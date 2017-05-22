@@ -13,7 +13,7 @@ object ActorPaths {
   object World {
     final object WorldServer extends Metadata("world-server")
     final object Authenticator extends Metadata("authenticator")
-    final object CharacterIdentitySupplier extends Metadata("character-id-supplier", Some(WorldServer))
+    final object CharacterIdSupplier extends Metadata("character-id-supplier", Some(WorldServer))
   }
 
   object Metadata {

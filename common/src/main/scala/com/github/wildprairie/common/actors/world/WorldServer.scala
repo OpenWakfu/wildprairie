@@ -21,7 +21,7 @@ class WorldServer(authenticator: ActorRef) extends WakfuServer {
   import WakfuServer._
 
   // startup the global character identifier supply
-  context.actorOf(CharacterIdentifierSupply.props, ActorPaths.World.CharacterIdentitySupplier.name)
+  context.actorOf(CharacterIdentifierSupply.props, ActorPaths.World.CharacterIdSupplier.name)
 
   override def receive: Receive =
     handleClusterEvents

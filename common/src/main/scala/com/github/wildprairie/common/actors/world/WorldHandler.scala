@@ -7,6 +7,7 @@ import com.github.wakfutcp.protocol.messages.forClient._
 import com.github.wakfutcp.protocol.messages.forServer._
 import com.github.wakfutcp.traits.StatefulActor
 import com.github.wakfutcp.traits.server.syntax._
+import com.github.wildprairie.common.actors.ActorPaths
 import com.github.wildprairie.common.actors.auth.AccountAuthenticator.UserAccount
 import com.github.wildprairie.common.actors.shared.Authenticator
 import com.github.wildprairie.common.actors.shared.Authenticator.{Failure, FailureReason, Success}
@@ -146,7 +147,7 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
       case CharacterSelectionMessage(charId, _) =>
 
       case msg: CharacterCreationMessage =>
-        actorSelection("/user/world-server/character-id-supply") ! ReserveCharacter(msg.name)
+        actorSelection(ActorPaths.World.CharacterIdSupplier.toString) ! ReserveCharacter(msg.name)
         become({
           case CharacterIdentifierSupply.Success(cid) =>
             account ! CreateCharacter(
