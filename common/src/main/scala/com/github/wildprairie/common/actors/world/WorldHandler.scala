@@ -3,12 +3,11 @@ package com.github.wildprairie.common.actors.world
 import java.security.PrivateKey
 
 import akka.actor.{ActorLogging, ActorRef, Props, Stash}
-import akka.io.Tcp
 import com.github.wakfutcp.protocol.messages.forClient._
 import com.github.wakfutcp.protocol.messages.forServer._
-import com.github.wakfutcp.protocol.raw.CharacterDataSet.ForCharacterListSet
 import com.github.wakfutcp.traits.StatefulActor
 import com.github.wakfutcp.traits.server.syntax._
+import com.github.wildprairie.common.actors.ActorPaths
 import com.github.wildprairie.common.actors.auth.AccountAuthenticator.UserAccount
 import com.github.wildprairie.common.actors.shared.Authenticator
 import com.github.wildprairie.common.actors.shared.Authenticator.{Failure, FailureReason, Success}
@@ -32,6 +31,7 @@ object WorldHandler {
   final case object AwaitingPublicKey extends WorldState
   final case class AwaitingToken(salt: Long, privateKey: PrivateKey) extends WorldState
   final case class CheckingAuthentication(token: String) extends WorldState
+  final case class AwaitingCharactersList(account: ActorRef, owner: UserAccount) extends WorldState
   final case class CharacterSelection(account: ActorRef, owner: UserAccount) extends WorldState
 }
 
@@ -57,8 +57,10 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         handleAuthentication
       case CheckingAuthentication(_) =>
         handleAuthenticationCheck
-      case CharacterSelection(handler, account) =>
-        handleCharacterSelection(handler, account)
+      case AwaitingCharactersList(account, owner) =>
+        handleCharactersList(account, owner)
+      case CharacterSelection(account, owner) =>
+        handleCharacterSelection(account, owner)
     }
 
   def handleProtocolVerification: StatefulReceive =
@@ -90,27 +92,15 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
     _ => {
       // client sends GiftInventoryRequestMessage
       case Success(_, account: UserAccount) =>
-        import akka.pattern._
-        import context.dispatcher
-        import scala.concurrent.duration._
-
         // TODO: account information serialization
-        // TODO: retrieve account characters
         log.info(s"authentication success: account=$account")
         client !! ClientAuthenticationResultsMessage.Success(Array[Byte](0))
         client !! WorldSelectionResultMessage.Success
         // TODO: send: FreeCompanionBreedIdMessage, ClientCalendarSynchronizationMessage, ClientSystemConfigurationMessage
         // TODO: send: ClientAdditionalCharacterSlotsUpdateMessage, CompanionListMessage
         val user = context.actorOf(User.props(account.account.id))
-        user
-          .ask(GetCharacters)(5.seconds)
-          .mapTo[CharacterList]
-          .map { list =>
-            Tcp.Write(CharactersListMessage(list.chars.toArray).wrap)
-          }
-          .pipeTo(client)
-        unstashAll()
-        setStates(List(CharacterSelection(user, account)))
+        user ! GetCharacters
+        setStates(List(AwaitingCharactersList(user, account)))
 
       case Failure(_: String, reason) =>
         log.warning(s"token authentication failure: reason=$reason")
@@ -129,10 +119,21 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
         stash()
     }
 
-  def handleCharacterSelection(user: ActorRef, account: UserAccount): StatefulReceive =
+  def handleCharactersList(account: ActorRef, owner: UserAccount): StatefulReceive =
+    _ => {
+      case CharactersList(characters) =>
+        client !! CharactersListMessage(characters.toArray)
+        unstashAll()
+        setStates(List(CharacterSelection(account, owner)))
+
+      case _ =>
+        stash()
+    }
+
+  def handleCharacterSelection(account: ActorRef, owner: UserAccount): StatefulReceive =
     _ => {
       case CharacterDeletionMessage(charId) =>
-        user ! DeleteCharacter(charId)
+        account ! DeleteCharacter(charId)
         become({
           case CharacterDeletionSuccess(cid) if charId == cid =>
             client !! CharacterDeletionResultMessage(cid, successful = true)
@@ -146,10 +147,10 @@ class WorldHandler(client: ActorRef, server: ActorRef, authenticator: ActorRef)
       case CharacterSelectionMessage(charId, _) =>
 
       case msg: CharacterCreationMessage =>
-        actorSelection("/user/world-server/character-id-supply") ! ReserveCharacter(msg.name)
+        actorSelection(ActorPaths.World.CharacterIdSupplier.toString) ! ReserveCharacter(msg.name)
         become({
           case CharacterIdentifierSupply.Success(cid) =>
-            user ! CreateCharacter(
+            account ! CreateCharacter(
               CharacterCreationData(
                 cid,
                 msg.sex,

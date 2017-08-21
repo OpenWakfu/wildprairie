@@ -20,13 +20,11 @@ object WorldServer {
 class WorldServer(authenticator: ActorRef) extends WakfuServer {
   import WakfuServer._
 
-  override def preStart(): Unit = {
-    super.preStart()
-    context.become(handleClusterEvents)
-  }
-
   // startup the global character identifier supply
-  context.actorOf(CharacterIdentifierSupply.props, "character-id-supply")
+  context.actorOf(CharacterIdentifierSupply.props, ActorPaths.World.CharacterIdSupplier.name)
+
+  override def receive: Receive =
+    handleClusterEvents
 
   override def newHandlerProps: (ActorRef) => Props =
     client => WorldHandler.props(client, self, authenticator)
